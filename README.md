@@ -14,12 +14,14 @@ Components:
 
 RoadMap:
     fully upgrade to tensorflow 2.0
+
     intergrate time series and tabular data
     add more SOTA models
     support pytroch
         -- how to deal with tfrecord and pytorch?
 
 Todo:
-    update YoloV3
+    rewrite Trainners/TF/Keras_Callbacks/ModelLogger
     better split machnimsm
+    update YoloV3
 
