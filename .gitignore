@@ -102,3 +102,12 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# model file
+*.h5
+*.pt
+*.model
+
+# config & log
+*.yml
+*.log
