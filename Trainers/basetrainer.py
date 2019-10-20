@@ -67,7 +67,7 @@ class KerasBaseTrainner:
             epochs=max_epoch,
             steps_per_epoch=train_db.data_count // batch_size,
             validation_data=vali_db.get_dataset(epoch=max_epoch, batchsize=batch_size),
-            validation_steps=vali_db.data_count,
+            validation_steps=vali_db.data_count // batch_size,
             callbacks=[
                 ModelLogger(
                     temp_model_folder=self.tmp_dir,
