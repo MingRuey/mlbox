@@ -18,7 +18,7 @@ from tensorflow.keras.optimizers import SGD, Adam  # noqa: E402
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
-from MLBOX.Trainers.TF.Keras_Callbacks import ModelLogger  # noqa: E402
+from MLBOX.Trainers.TF.Keras_Callbacks import ModelLogger, TrainRecord  # noqa: E402
 # from MLBOX.Trainers.TF.Keras_Callbacks import LearningRateDecaySchedule  # noqa: E402
 
 
@@ -70,6 +70,7 @@ class KerasBaseTrainner:
             validation_steps=vali_db.data_count // batch_size,
             callbacks=[
                 ModelLogger(
+                    train_record=TrainRecord(),
                     temp_model_folder=self.tmp_dir,
                     best_model_folder=self.out_dir,
                     monitor='val_loss', verbose=1, mode='min',

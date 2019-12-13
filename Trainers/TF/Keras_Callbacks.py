@@ -1,5 +1,7 @@
 import os
 import logging
+
+import yaml
 import numpy as np
 from tensorflow.keras.callbacks import Callback
 from tensorflow.keras.models import save_model
@@ -9,13 +11,59 @@ from tensorflow.keras.callbacks import LearningRateScheduler
 MODLE_NAME = "model_{:03d}_{:.5f}.h5"
 
 
-# Self-defined callbacks
+class TrainRecord:
+
+    def __init__(self):
+        self._logs = {}
+
+        self.optimizer_settings = {}
+        self.train_loss = 0.0
+        self.validation_loss = 0.0
+        self.best_model_file = ""
+
+    @property
+    def logs(self):
+        """Return logs conforms to Keras callback convention"""
+        return self._logs.copy()
+
+    def update_log(self, logs: dict):
+        """Update the training information via KerasCallback logs"""
+        if logs:
+            for key, val in logs.items():
+                record = self._logs.setdefault(key, [])
+                record.append(float(val))
+
+    def update_record(self, train_loss, vali_loss, best_model):
+        self.train_loss = float(train_loss)
+        self.validation_loss = float(vali_loss)
+        self.best_model_file = str(best_model)
+
+    def dump_record(self, output_file):
+        """Dump optimizer and training logs into output_file in yaml format"""
+        info = {
+            "best_model": {
+                "best_model_file": self.best_model_file,
+                "training_loss": self.train_loss,
+                "validation_loss": self.validation_loss,
+            },
+            "optimizer_setting": self.optimizer_settings,
+            "logs": self._logs
+        }
+
+        with open(str(output_file), "w") as f:
+            yaml.safe_dump(info, f, default_flow_style=False)
+
+
 class ModelLogger(Callback):
     """Save the model without optimize states after every epoch.
 
-    # Arguments
-        temp_model_folder: folder to store model without best performance.
-        best_model_folder: folder to store best model.
+    Args:
+        train_record:
+            the TrainingRecord of ModeSpec, the record will be updated inplace.
+        temp_model_folder:
+            folder to store model without best performance.
+        best_model_folder:
+            folder to store best model.
         monitor: quantity to monitor.
         verbose: verbosity mode, 0 or 1.
         save_best_only: if `save_best_only=True`,
@@ -37,12 +85,23 @@ class ModelLogger(Callback):
             saved (`model.save_weights(filepath)`), else the full model
             is saved (`model.save(filepath)`).
         period: Interval (number of epochs) between checkpoints.
+        **kwargs:
+            NOT USED.
+            For caller can add additional kwargs without getting errors.
     """
 
-    def __init__(self, temp_model_folder, best_model_folder,
-                 monitor='val_loss', verbose=0,
-                 save_best_only=False, save_weights_only=False,
-                 mode='auto', period=1):
+    def __init__(
+            self,
+            train_record: TrainRecord,
+            temp_model_folder, best_model_folder,
+            monitor='val_loss',
+            verbose=0,
+            save_best_only: bool = False,
+            save_weights_only: bool = False,
+            mode='auto',
+            period=1,
+            **kwargs
+            ):
         super(ModelLogger, self).__init__()
         self.monitor = monitor
         self.verbose = verbose
@@ -50,13 +109,14 @@ class ModelLogger(Callback):
         self.save_weights_only = save_weights_only
         self.period = period
         self.epochs_since_last_save = 0
-        self.temp_model_folder = temp_model_folder
-        self.best_model_folder = best_model_folder
+        self.temp_dir = temp_model_folder
+        self.best_dir = best_model_folder
         self.best_model_name = ""
+        self.record = train_record
 
         if mode not in ['auto', 'min', 'max']:
             msg = 'ModelCheckpoint mode {} is unknown, fallback to auto mode.'
-            logging.info(msg.format(mode))
+            self._logging(msg.format(mode))
             mode = 'auto'
 
         if mode == 'min':
@@ -73,104 +133,88 @@ class ModelLogger(Callback):
                 self.monitor_op = np.less
                 self.best = np.Inf
 
+    def _logging(self, msg):
+        """Helper for logging message depends on the verbose setting"""
+        if self.verbose > 0:
+            logging.info(msg)
+
+    def _save_model(self, temp_or_best: str, model_name: str, message=""):
+        """Helper for saving model to temp folder """
+        if temp_or_best == "temp":
+            folder = self.temp_dir
+        else:
+            folder = self.best_dir
+
+        file_path = os.path.join(folder, model_name)
+        if self.save_weights_only:
+            self.model.save_weights(file_path, overwrite=True)
+        else:
+            save_model(self.model, file_path, include_optimizer=False)
+
+        self._logging("saving model to {}".format(file_path))
+
     def on_epoch_end(self, epoch, logs=None):
-        now_epoch = epoch + 1
-        validloss = logs.get('val_loss')
-        now_model_name = MODLE_NAME.format(now_epoch, validloss)
+        if (self.model.stop_training and epoch == 0):
+            return
+
         logs = logs or {}
+        trainloss = logs.get('loss', np.inf)
+        validloss = logs.get('val_loss', np.inf)
+
+        now_epoch = epoch + 1
+        now_model_name = MODLE_NAME.format(now_epoch, validloss)
+
         self.epochs_since_last_save += 1
         if self.epochs_since_last_save >= self.period:
             self.epochs_since_last_save = 0
-            best_file_path = os.path.join(
-                self.best_model_folder, now_model_name)
-            temp_file_path = os.path.join(
-                self.temp_model_folder, now_model_name)
-            if self.save_best_only:
-                current = logs.get(self.monitor)
-                if current is None:
+            current = logs.get(self.monitor)
+            if current is None:
+                if self.save_best_only:
                     msg = "Save best model only with {} available, skipping."
-                    logging.info(msg.format(self.monitor))
+                    self._logging(msg.format(self.monitor))
                 else:
-                    if self.monitor_op(current, self.best):
-                        if self.verbose > 0:
-                            msg = "Epoch {}: " + \
-                                "{} improved from {} to {}, " + \
-                                "saving model to {}"
-                            logging.info(msg.format(
-                                epoch + 1, self.monitor, self.best,
-                                current, best_file_path
-                            ))
-                        if self.best_model_name is not "":
-                            os.rename(
-                                os.path.join(
-                                    self.best_model_folder,
-                                    self.best_model_name),
-                                os.path.join(
-                                    self.temp_model_folder,
-                                    self.best_model_name)
-                                )
-                        self.best = current
-                        self.best_model_name = now_model_name
-                        if self.save_weights_only:
-                            self.model.save_weights(
-                                best_file_path,
-                                overwrite=True
-                                )
-                        else:
-                            save_model(
-                                self.model,
-                                best_file_path,
-                                include_optimizer=False
-                                )
-                    else:
-                        if self.verbose > 0:
-                            msg = "Epoch {}: {} did not improve from {}"
-                            logging.info(
-                                msg.format(epoch + 1, self.monitor, self.best)
-                                )
+                    self._save_model(
+                        temp_or_best="temp",
+                        model_name=now_model_name
+                    )
             else:
-                current = logs.get(self.monitor)
                 if self.monitor_op(current, self.best):
-                    if self.verbose > 0:
-                        msg = "Epoch {}: {} improved from {} to {}, " + \
-                            "saving model to {}"
-                        logging.info(msg.format(
-                            epoch + 1, self.monitor, self.best, current,
-                            best_file_path
-                            ))
+                    msg = "Epoch {}: {} improved from {} to {}."
+                    self._logging(msg.format(
+                        epoch + 1, self.monitor, self.best, current,
+                    ))
                     if self.best_model_name is not "":
-                        os.rename(
-                            os.path.join(
-                                self.best_model_folder,
-                                self.best_model_name),
-                            os.path.join(
-                                self.temp_model_folder,
-                                self.best_model_name)
+                        if self.save_best_only:
+                            os.remove(os.path.join(self.best_dir, self.best_model_name))
+                        else:
+                            os.rename(
+                                os.path.join(self.best_dir, self.best_model_name),
+                                os.path.join(self.temp_dir, self.best_model_name)
                             )
                     self.best = current
                     self.best_model_name = now_model_name
-                    if self.save_weights_only:
-                        self.model.save_weights(best_file_path, overwrite=True)
-                    else:
-                        save_model(
-                            self.model, best_file_path,
-                            include_optimizer=False
-                            )
+                    self.record.update_record(
+                        train_loss=trainloss, vali_loss=validloss,
+                        best_model=now_model_name
+                    )
+                    self._save_model(
+                        temp_or_best="best",
+                        model_name=now_model_name,
+                        message=msg
+                    )
                 else:
-                    if self.verbose > 0:
-                        msg = "Epoch {}: {} did not improve from {}, " + \
-                            "saving model to {}"
-                        logging.info(msg.format(
-                            epoch + 1, self.monitor, self.best,
-                            temp_file_path
-                            ))
-                    if self.save_weights_only:
-                        self.model.save_weights(temp_file_path, overwrite=True)
-                    else:
-                        save_model(
-                            self.model, temp_file_path,
-                            include_optimizer=False
-                            )
+                    msg = "Epoch {}: {} did not improve from {}"
+                    self._logging(
+                        msg.format(epoch + 1, self.monitor, self.best)
+                    )
+                    if not self.save_best_only:
+                        self._save_model(
+                            temp_or_best="temp",
+                            model_name=now_model_name
+                        )
+
+        self.record.update_log(logs)
+        self.record.dump_record(os.path.join(self.best_dir, "logs.yml"))
 
 
 class EarlyStopper(Callback):
