@@ -98,10 +98,10 @@ class UNET:
 
     def __init__(
             self,
-            n_base_filter: int=64,
-            n_down_sample: int=4,
-            n_class: int=2,
-            padding: str="reflect"
+            n_base_filter: int = 64,
+            n_down_sample: int = 4,
+            n_class: int = 2,
+            padding: str = "reflect"
             ):
         """Init a UNET class
 
@@ -130,7 +130,7 @@ class UNET:
         else:
             self._padType = UNetPadType.valid
 
-    def forward(self, inputs):
+    def forward(self, inputs: tf.Tensor) -> tf.Tensor:
         # Down Sampling
         pool = inputs
         down_feats = []
