@@ -13,18 +13,37 @@ logging.basicConfig(
     )
 
 import tensorflow as tf  # noqa: E402
+import tensorflow.keras as keras  # noqa: E402
 from tensorflow.keras.layers import SimpleRNN, LSTM, Dense   # noqa: E402
 from tensorflow.keras.optimizers import SGD, Adam  # noqa: E402
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
+
+from MLBOX.Datbase.dataset import DataBase  # noqa: E402
 from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
 from MLBOX.Trainers.TF.Keras_Callbacks import ModelLogger, TrainRecord  # noqa: E402
-# from MLBOX.Trainers.TF.Keras_Callbacks import LearningRateDecaySchedule  # noqa: E402
 
 
 class KerasBaseTrainner:
 
-    def __init__(self, model, loss, optimizer, out_dir, metrics=None):
+    def __init__(
+            self,
+            model: keras.Model,
+            loss: keras.losses.Loss,
+            optimizer: keras.optimizers.Optimizer,
+            out_dir: str,
+            metrics: keras.metrics.Metric = None
+            ):
+        """Create a KerasBaseTrainner instance
+
+        Args:
+            model (keras.Model): the target model to be trained
+            loss (keras.losses.Loss): the loss to optimizer
+            optimizer (keras.optimizers.Optimizer):  the optimizer to use
+            out_dir (str): the directory to store the trained model
+            metrics (keras.metrics.Metric):
+                The metrics to monitor. Defaults to None.
+        """
         model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         self._model = model
 
@@ -41,15 +60,31 @@ class KerasBaseTrainner:
 
     def train(
             self,
-            train_db,  # should already config parser
-            vali_db,  # should already config parser
-            lr_decay_factor=0.5,
-            batch_size=8,
-            min_epoch=40,
-            max_epoch=200,
-            early_stop_patience=20,
-            load_best=True
+            train_db: DataBase,  # should already config parser
+            vali_db: DataBase,  # should already config parser
+            lr_decay_factor: float = 0.5,
+            batch_size: int = 8,
+            min_epoch: int = 40,
+            max_epoch: int = 200,
+            early_stop_patience: int = 20,
+            load_best: int = True
             ):
+        """
+
+        Args:
+            train_db (DataBase): database of training set
+            vali_db (DataBase): database of validation set
+            batch_size (int, optional): Defaults to 8.
+            min_epoch (int, optional):
+                The minimum epoch for training. Defaults to 40.
+            max_epoch (int, optional):
+                The maximum epoch for training. Defaults to 200.
+            early_stop_patience (int, optional):
+                The waiting epoch for early stop machanism. Defaults to 20.
+            load_best (int, optional):
+                To load the best model under output_dir or not.
+                Defaults to True.
+        """
 
         init_epoch = 0
         if load_best:
