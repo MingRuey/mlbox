@@ -80,6 +80,8 @@ class KerasGANTrainner:
         self.tmp_dir = pathlib.Path(out_dir).joinpath("tmp")
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
         self.tmp_dir = str(self.tmp_dir)
+        self._gen_name = "Gen_{:03d}_{:.5f}.h5"
+        self._disc_name = "Disc_{:03d}_{:.5f}.h5"
 
     def train(
             self,
@@ -94,21 +96,38 @@ class KerasGANTrainner:
 
         for epoch in range(max_epoch):
             print("epoch {} starts".format(epoch))
+            total_gen_loss = 0
+            total_disc_loss = 0
             for batch in range(steps_per_epoch):
                 gt_imgs, noises = next(dataset)
                 gen_loss, disc_loss = self._train_step(gt_imgs, noises)
-                msg = "    batch {} - Generator loss: {}; Descriminator loss: {}"
-                print(msg.format(batch, gen_loss, disc_loss))
-            print("epoch {} ends".format(epoch))
+
+                total_gen_loss += gen_loss
+                total_disc_loss += disc_loss
+
+                msg = "    batch {:03d} - Gen loss: {:.5f}; Disc loss: {:.5f} (per img)"
+                print(msg.format(batch, gen_loss, disc_loss), end="\r")
+
+            avg_gen_loss = total_gen_loss / steps_per_epoch
+            avg_disc_loss = total_disc_loss / steps_per_epoch
+
+            msg = "epoch {} ends, Gen loss: {}, Disc loss: {} (per batch)"
+            print(msg.format(epoch, avg_gen_loss, avg_disc_loss))
+
+            file_gen = os.path.join(
+                self.tmp_dir, self._gen_name.format(epoch, avg_gen_loss)
+            )
+            file_disc = os.path.join(
+                self.tmp_dir, self._disc_name.format(epoch, avg_disc_loss)
+            )
+            self._gen.save_weights(file_gen)
+            self._disc.save_weights(file_disc)
 
     @tf.function
     def _train_step(self, gt_imgs: tf.Tensor, noises: tf.Tensor):
-        """[summary]
+        """Single train step - optimizer minimize a batch over two models"""
+        batch = gt_imgs.shape[0]
 
-        Args:
-            images (tf.Tensor): [description]
-            noise (tf.Tensor): [description]
-        """
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
             fake_imgs = self._gen(noises, training=True)
 
@@ -140,4 +159,4 @@ class KerasGANTrainner:
         self._gen_optimzier.apply_gradients(
             zip(gen_grad, self._gen.trainable_variables)
         )
-        return disc_loss, gen_loss
+        return disc_loss / (2*batch), gen_loss / batch
