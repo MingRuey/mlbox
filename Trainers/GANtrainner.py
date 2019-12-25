@@ -15,6 +15,7 @@ logging.basicConfig(
 import tensorflow as tf  # noqa: E402
 import tensorflow.keras as keras  # noqa: E402
 from tensorflow.keras.layers import SimpleRNN, LSTM, Dense   # noqa: E402
+from tensorflow.keras.losses import BinaryCrossentropy  # noqa: E402
 from tensorflow.keras.optimizers import SGD, Adam  # noqa: E402
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
@@ -88,22 +89,20 @@ class KerasGANTrainner:
             ):
 
         dataset = database.get_dataset(epoch=max_epoch, batchsize=batch_size)
-        steps_per_epoch = database.data_count // batch_size,
+        dataset = iter(dataset)
+        steps_per_epoch = database.data_count // batch_size
 
-        epoch = 0
-        for imgs, noises in dataset:
-            epoch += 1
-            batch = 0
+        for epoch in range(max_epoch):
             print("epoch {} starts".format(epoch))
-            for batch in steps_per_epoch:
-                batch += 1
-                gen_loss, disc_loss = self._train_step(imgs, noises)
+            for batch in range(steps_per_epoch):
+                gt_imgs, noises = next(dataset)
+                gen_loss, disc_loss = self._train_step(gt_imgs, noises)
                 msg = "    batch {} - Generator loss: {}; Descriminator loss: {}"
                 print(msg.format(batch, gen_loss, disc_loss))
             print("epoch {} ends".format(epoch))
 
     @tf.function
-    def _train_step(self, gt_imgs: tf.Tensor, noise: tf.Tensor):
+    def _train_step(self, gt_imgs: tf.Tensor, noises: tf.Tensor):
         """[summary]
 
         Args:
@@ -111,18 +110,34 @@ class KerasGANTrainner:
             noise (tf.Tensor): [description]
         """
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-            fake_imgs = self._gen(noise, training=True)
+            fake_imgs = self._gen(noises, training=True)
 
-            real_out = self._disc(gt_imgs, training=True)
-            fake_out = self._disc(fake_imgs, training=True)
+            true_pred = self._disc(gt_imgs, training=True)
+            fake_pred = self._disc(fake_imgs, training=True)
+            pred = tf.concat([true_pred, fake_pred], axis=-1)
 
-            gen_loss = gen_loss_fn(fake_out)
-            disc_loss = disc_loss_fn(real_out, fake_out)
+            true_lb = 0.9 * tf.ones_like(true_pred)
+            fake_lb = tf.zeros_like(fake_pred)
+            disc_lb = tf.concat([true_lb, fake_lb], axis=-1)
 
-        gen_grad = gen_tape.gradient(gen_loss, self._gen.trainable_variables)
-        disc_grad = disc_tape.gradient(disc_loss, self._disc.trainable_variables)
+            gen_lb = tf.ones_like(fake_pred)
 
-        self._gen_optimzier.apply_gradients(zip(gen_grad, self._gen.trainable_variables))
-        self._disc_optimzier.apply_gradients(zip(disc_grad, self._disc.trainable_variables))
+            disc_loss = BinaryCrossentropy(from_logits=True)(disc_lb, pred)
+            gen_loss = BinaryCrossentropy(from_logits=True)(gen_lb, fake_pred)
 
-        return gen_loss, disc_loss
+        disc_grad = disc_tape.gradient(
+            disc_loss,
+            self._disc.trainable_variables
+        )
+        self._disc_optimzier.apply_gradients(
+            zip(disc_grad, self._disc.trainable_variables)
+        )
+
+        gen_grad = gen_tape.gradient(
+            gen_loss,
+            self._gen.trainable_variables
+        )
+        self._gen_optimzier.apply_gradients(
+            zip(gen_grad, self._gen.trainable_variables)
+        )
+        return disc_loss, gen_loss
