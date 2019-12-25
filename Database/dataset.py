@@ -4,6 +4,7 @@ import yaml
 import logging
 from concurrent import futures
 from functools import partial
+from typing import List
 import numpy as np
 import tensorflow as tf
 
@@ -104,23 +105,23 @@ class DataBase:
 
     yaml.SafeLoader.add_constructor(u"!DataFormat", DataFormat.from_yaml)
 
-    def __init__(self, formats: DataFormat=None):
+    def __init__(self, formats: DataFormat = None):
         """Initialize a dataset with formats"""
         self._files = []
         self._formats = formats
 
     @property
-    def files(self):
+    def files(self) -> List[str]:
         """Get the tfreocrd files in dataset"""
         return self._files
 
     @property
-    def file_count(self):
+    def file_count(self) -> int:
         """Get the total number of tfrecord files in dataset"""
         return len(self._files)
 
     @property
-    def data_count(self):
+    def data_count(self) -> int:
         """Get the total number of data in dataset"""
         # TODO: this can be extremely slow
         cnt = 0
@@ -133,7 +134,7 @@ class DataBase:
         """Get the format dataset used to save tfrecords"""
         return self._formats
 
-    def add_files(self, files):
+    def add_files(self, files: List[str]):
         """Add one or more tfrecord files
 
         Args:
@@ -154,7 +155,7 @@ class DataBase:
         logging.warning(msg.format(file))
         return False
 
-    def remove_files(self, files):
+    def remove_files(self, files: List[str]):
         """Remove one or more tfrecord files
 
         Args:
@@ -162,7 +163,7 @@ class DataBase:
         """
         raise NotImplementedError()
 
-    def load_path(self, directory):
+    def load_path(self, directory: str):
         """Init a Dataset with a dir containing tfrecords and metadata
 
         Load already exist files if meta is found,
@@ -182,7 +183,7 @@ class DataBase:
         tfrecords = _glob_ext(directory, ".tfrecord", mini=1, name="TFRecords")
         self.files.extend([str(file) for file in tfrecords])
 
-    def build_database(self, input_dir, output_dir):
+    def build_database(self, input_dir: str, output_dir: str):
         """Build database from a tfexample generator and a path
 
         Args:
@@ -257,7 +258,7 @@ class DataBase:
         """
         self._parser = self.formats.get_parser(*args, **kwargs)
 
-    def get_dataset(self, epoch, batchsize):
+    def get_dataset(self, epoch: int, batchsize: int):
         """Get the tf.dataset class used by get_input_tensor"""
         dataset = tf.data.TFRecordDataset(self.files)
         dataset = dataset.map(
@@ -269,7 +270,7 @@ class DataBase:
         dataset = dataset.prefetch(OUTPUT_BUFFER_TO_BATCH_RATIO)
         return dataset
 
-    def get_input_tensor(self, epoch, batchsize):
+    def get_input_tensor(self, epoch: int, batchsize: int):
         """Get the input tensor from tfrecord files in databaseObj
 
         Args:
