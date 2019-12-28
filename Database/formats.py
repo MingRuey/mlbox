@@ -1,9 +1,11 @@
 from abc import abstractmethod
 import imghdr
 import pathlib
+
 import yaml
-from scipy.io import wavfile
 import tensorflow as tf
+from scipy.io import wavfile
+from moviepy.editor import VideoFileClip
 
 
 def _tffeature_int64(value):
@@ -49,7 +51,7 @@ class DataFormat(yaml.YAMLObject):
             return False
         return self.features == other.features
 
-    def update(self, dct):
+    def update(self, dct: dict):
         for key, item in dct.items():
 
             if not isinstance(key, str):
@@ -107,7 +109,7 @@ class IMGFORMAT(DataFormat):
     }
     valid_extensions = {'.jpg', '.bmp'}
 
-    def __init__(self, img_label_map=None):
+    def __init__(self, img_label_map: dict = None):
         """
         Args:
             img_label_map:
@@ -119,7 +121,7 @@ class IMGFORMAT(DataFormat):
         self._label_map = None if not img_label_map else img_label_map.copy()
 
     @staticmethod
-    def load_from_file(file: str):
+    def load_from_file(file: str) -> tuple:
         """Load image from file and return image id and content in bytes
 
         Args:
@@ -150,7 +152,7 @@ class IMGFORMAT(DataFormat):
             image_bytes,
             )
 
-    def to_tfexample(self, img_file_path):
+    def to_tfexample(self, img_file_path) -> tf.train.Example:
         """Load image and return a tf.train.Example object
 
         Args:
@@ -219,6 +221,110 @@ class IMGFORMAT(DataFormat):
         return parse_tfexample
 
 
+class VIDEOFMT(DataFormat):
+    """Format for storing video data"""
+
+    context = {
+        "filename": tf.io.FixedLenFeature([], tf.string),
+        "extension": tf.io.FixedLenFeature([], tf.string),
+        "height": tf.io.FixedLenFeature([], tf.int64),
+        "width": tf.io.FixedLenFeature([], tf.int64),
+        "length": tf.io.FixedLenFeature([], tf.float32),
+        "video_fps": tf.io.FixedLenFeature([], tf.float32),
+        "audio_channels": tf.io.FixedLenFeature([], tf.int64),
+        "audio_fps": tf.io.FixedLenFeature([], tf.int64)
+    }
+
+    content = {
+        "rgb": tf.io.FixedLenSequenceFeature([], tf.string),
+        "audio": tf.io.FixedLenSequenceFeature([], tf.string),
+        "class":
+            tf.io.FixedLenSequenceFeature([], tf.int64, allow_missing=True)
+    }
+
+    valid_extensions = {'.mp4'}
+
+    def __init__(self, id_label_map: dict = None):
+        """
+        Args:
+            id_label_map:
+                a dictionary that maps video id into int or a list of int.
+                which specify the label(s) of the image.
+                If set to None,
+                no class label is included in the tf.train.Example
+        """
+        self._label_map = None if not id_label_map else id_label_map.copy()
+
+    def to_tfexample(self, file: str) -> tf.train.SequenceExample:
+        """Map a video file into tf.train.SequenceExample
+
+        Args:
+            file (str): the target video file
+
+        Returns:
+            tf.train.SequenceExample instance of the video
+        """
+        video = VideoFileClip(file, audio=True)
+        audio = video.audio
+
+        path = pathlib.Path(file)
+        context = {
+            "filename": _tffeature_bytes(path.stem),
+            "extension": _tffeature_bytes(path.suffix),
+            "height": _tffeature_int64(video.h),
+            "width": _tffeature_int64(video.w),
+            "length": _tffeature_float(video.duration),
+            "video_fps": _tffeature_float(video.fps),
+            "audio_channels": _tffeature_int64(audio.nchannels),
+            "audio_fps": _tffeature_int64(audio.fps)
+        }
+
+        video = [
+            _tffeature_bytes(frame.tobytes()) for frame in video.iter_frames()
+        ]
+        audio = [
+            _tffeature_bytes(sound.tobytes()) for sound in audio.iter_frames()
+        ]
+
+        sequence = {
+            "rgb": tf.train.FeatureList(feature=video),
+            "audio": tf.train.FeatureList(feature=audio)
+        }
+
+        if self._label_map:
+            classes = self._label_map[path.stem]
+            sequence["class"] = _tffeature_int64(classes)
+
+        return tf.train.SequenceExample(
+            context=tf.train.Features(feature=context),
+            feature_lists=tf.train.FeatureLists(feature_list=sequence)
+        )
+
+    def get_parser(self):
+
+        def parser(sequence_example):
+            context, sequence = tf.io.parse_single_sequence_example(
+                sequence_example,
+                context_features=VIDEOFMT.context,
+                sequence_features=VIDEOFMT.content
+            )
+
+            width = context["width"]
+            height = context["height"]
+            audio_channels = context["audio_channels"]
+
+            video = tf.io.decode_raw(sequence["rgb"], out_type=tf.uint8)
+            video = tf.reshape(video, [-1, height, width, 3])
+
+            audio = tf.io.decode_raw(sequence["audio"], out_type=tf.float64)
+            audio = tf.reshape(audio, [-1, audio_channels])
+
+            label = sequence.get("class")
+            return video, audio, label
+
+        return parser
+
+
 class TSFORMAT(DataFormat):
     """Format for classification on time series"""
 
@@ -234,7 +340,7 @@ class TSFORMAT(DataFormat):
     }
     valid_extensions = {'.wav'}
 
-    def __init__(self, ts_label_map=None):
+    def __init__(self, ts_label_map: dict = None):
         """
         Args:
             ts_label_map:
@@ -245,7 +351,15 @@ class TSFORMAT(DataFormat):
         """
         self._label_map = None if not ts_label_map else ts_label_map.copy()
 
-    def to_tfexample(self, ts_file_path):
+    def to_tfexample(self, ts_file_path: str) -> tf.train.Example:
+        """Convert audio file into tf.train.Example
+
+        Args:
+            ts_file_path (str): the target audio file
+
+        Returns:
+            tf.train.Example instance of the audio
+        """
         file = pathlib.Path(file)
         if not file.is_file():
             raise ValueError("Invalid file path")
