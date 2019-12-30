@@ -293,7 +293,9 @@ class VIDEOFMT(DataFormat):
 
         if self._label_map:
             classes = self._label_map[path.stem]
-            sequence["class"] = _tffeature_int64(classes)
+            sequence["class"] = tf.train.FeatureList(
+                feature=[_tffeature_int64(classes)]
+            )
 
         return tf.train.SequenceExample(
             context=tf.train.Features(feature=context),

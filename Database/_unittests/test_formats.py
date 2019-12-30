@@ -16,11 +16,14 @@ class TestVideoFormat:
     sample_videos = list(
         pathlib.Path(__file__).parent.joinpath("sample_files").glob("*.mp4")
     )
+    label_map = {
+        file.stem: True for file in sample_videos
+    }
 
     def test_to_tf_sequence_example(self):
         """the converted tf sequence example should contain the video data"""
         assert self.sample_videos
-        fmt = VIDEOFMT()
+        fmt = VIDEOFMT(id_label_map=self.label_map)
 
         for file in self.sample_videos:
             sequence_example = fmt.to_tfexample(str(file))
@@ -46,7 +49,7 @@ class TestVideoFormat:
                 enumerate(gt_audio.iter_frames()) if i == 10
             )
 
-            assert label.size == 0
+            assert label == np.array([1])
             assert np.all(video[10, ...] == gt_video)
             assert np.all(audio[10, ...] == gt_audio)
 
