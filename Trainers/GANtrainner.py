@@ -88,7 +88,23 @@ class KerasGANTrainner:
             database: DataBase,
             batch_size: int = 8,
             max_epoch: int = 200,
+            load_best: bool = True
             ):
+
+        if load_best:
+            gen_weights = list(pathlib.Path(self.out_dir).glob("Gen_*.h5"))
+            if gen_weights:
+                gen_weights = gen_weights[0]
+                filename = gen_weights.name
+                self._gen.load_weights(str(gen_weights))
+                print("Generator load pretrain weights from {}".format(filename))
+
+            disc_weights = list(pathlib.Path(self.out_dir).glob("Disc_*.h5"))
+            if gen_weights:
+                disc_weights = disc_weights[0]
+                filename = disc_weights.name
+                self._disc.load_weights(str(disc_weights))
+                print("Discriminator load pretrain weights from {}".format(filename))
 
         dataset = database.get_dataset(epoch=max_epoch, batchsize=batch_size)
         dataset = iter(dataset)
