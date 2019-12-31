@@ -96,5 +96,22 @@ class Discriminator:
         return dense
 
 
+class ResDiscriminator:
+
+    def __init__(self):
+        pass
+
+    def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
+        resnet = keras.applications.ResNet50V2(
+            include_top=False, weights=None,
+            input_tensor=inputs, input_shape=None,
+            pooling=None
+        )
+        res_output = resnet.output
+        dense = Flatten()(res_output)
+        dense = Dense(1)(dense)
+        return dense
+
+
 if __name__ == "__main__":
     pass

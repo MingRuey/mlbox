@@ -8,6 +8,7 @@ from tensorflow.keras import Input, Model
 import matplotlib.pyplot as plt
 
 from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
+from MLBOX.Models.TF.Keras.DCGAN import ResDiscriminator
 
 
 class TestGenerator:
@@ -34,6 +35,17 @@ class TestDiscriminator:
         discriminator = Discriminator()(inputs)
         discriminator = Model(inputs=inputs, outputs=discriminator)
 
+        img = tf.ones(shape=(1, 416, 416, 3))
+        pred = discriminator.predict(img)
+        pred = pred[0, ...]
+        assert pred.shape == (1,)
+
+    def test_res_discriminator(self):
+        image_shape = (416, 416, 3)
+
+        inputs = Input(image_shape)
+        discriminator = ResDiscriminator()(inputs)
+        discriminator = Model(inputs=inputs, outputs=discriminator)
         img = tf.ones(shape=(1, 416, 416, 3))
         pred = discriminator.predict(img)
         pred = pred[0, ...]
