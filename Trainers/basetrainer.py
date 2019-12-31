@@ -92,7 +92,7 @@ class KerasBaseTrainner:
             if weights:
                 weights = weights[0]
                 filename = weights.name
-                ini_epoch = int(filename.split("_")[1])
+                init_epoch = int(filename.split("_")[1])
                 self._model.load_weights(str(weights))
                 print("load pretrain weights from {}".format(filename))
                 print("Re-train from epoch: {}".format(init_epoch))
