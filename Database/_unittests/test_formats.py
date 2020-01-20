@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from moviepy.editor import VideoFileClip
 
-from Database.formats import VIDEOFMT
+from MLBOX.Database.formats import VIDEOFMT
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
