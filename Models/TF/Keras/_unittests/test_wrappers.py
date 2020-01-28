@@ -20,7 +20,9 @@ class MockedLayer:
     _mock = mock.MagicMock()
     return_value = None
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, kernel_constraint=None, **kwargs):
+        if kernel_constraint is not None:
+            kwargs["kernel_constraint"] = kernel_constraint
         cls.return_value = cls._mock(*args, **kwargs)
         cls.assert_called_with = cls._mock.assert_called_with
         cls.mock_calls = cls._mock.mock_calls
@@ -28,22 +30,24 @@ class MockedLayer:
         return cls.return_value
 
 
+class MockedConv(MockedLayer):
+
+    _mock = mock.MagicMock()
+    return_value = None
+
+
+class MockedDense(MockedLayer):
+
+    _mock = mock.MagicMock()
+    return_value = None
+
+
 class TestConstraintWrapper:
 
     def test_mock_single_object(self):
         """ConstraintWrapper should set the default 'kernel_constraint' kwrag"""
 
-        class Conv2D(MockedLayer):
-            pass
-
-        for item in globals().values():
-            if inspect.isclass(item):
-                print("inside test", item)
-
-        @ConstraintWrapper(
-            constraint="constraint", targets={MockedLayer},
-            scope_ref=globals()
-        )
+        @ConstraintWrapper(constraint="constraint", targets={MockedLayer})
         def target_func(inputs):
             dense1 = Dense(10)(inputs)
             wrapped = MockedLayer(3.14, activation="relu")
@@ -66,7 +70,39 @@ class TestConstraintWrapper:
 
     def test_mock_multiple_layer_types(self):
         """ConstraintWrapper should set the default 'kernel_constraint' kwrag"""
-        pass
+
+        @ConstraintWrapper(
+            constraint="constraint",
+            targets={MockedConv, MockedDense}
+        )
+        def target_func(inputs):
+            dense1 = Dense(10)(inputs)
+            mocked = MockedConv(3.14, activation="relu")(dense1)
+            mocked = MockedDense(2.71, activation="softmax")(mocked)
+            return mocked
+
+        inputs = Input((240, 240, 3))
+        wrapped = target_func(inputs)
+
+        MockedConv.assert_called_with(
+            3.14, activation="relu",
+            kernel_constraint="constraint"
+        )
+        conv_instance = MockedConv.return_value
+        conv_instance.assert_called()
+
+        MockedDense.assert_called_with(
+            2.71, activation="softmax",
+            kernel_constraint="constraint"
+        )
+        dense_instance = MockedDense.return_value
+        dense_instance.assert_called_with(conv_instance.return_value)
+
+        # check the function default is actually restored
+        MockedConv(8.7, activation="tanh")
+        MockedDense(87, activation="sine")
+        assert MockedConv.mock_calls[-1] == mock.call(8.7, activation="tanh")
+        assert MockedDense.mock_calls[-1] == mock.call(87, activation="sine")
 
 
 if __name__ == "__main__":

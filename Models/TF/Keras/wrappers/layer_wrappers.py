@@ -1,7 +1,7 @@
 """
 Set of helpers for conviniently change layer functions inside function blocks
 """
-import inspect
+from inspect import isclass, signature
 import functools
 
 import tensorflow.keras as keras
@@ -11,7 +11,8 @@ from tensorflow.keras.constraints import Constraint
 class ConstraintWrapper:
     """Change all target layers' default constraint inside function block
 
-    This is used as a decorator, ex:
+    The implementation changes the function.__globals__ on the fly and restore
+    it once the value is return. This is used as a decorator, ex:
 
     @ConstraintWrapper(MinMaxNorm, Conv2D, scope=globals())
     def target_funtion(...):
@@ -21,57 +22,54 @@ class ConstraintWrapper:
     constraint in constructor.
     """
 
-    def __init__(
-            self, constraint: Constraint, targets: set,
-            scope_ref: dict
-            ):
+    def __init__(self, constraint: Constraint, targets: set):
         """Create a ConstraintWrapper object
 
         Args:
             constraint (Constraint): the constraint to be assigned as defaults
             targets (Set[Layer]): the affected layers types
-            scope_ref (dict):
-                the variable scopes to mock, usually be the globals() of module
         """
         self._constraint = constraint
 
         msg = "target must be class type, got {}"
         for target in targets:
-            assert inspect.isclass(target), msg.format(target)
-        self._scope = scope_ref
+            assert isclass(target), msg.format(target)
+        self._targets = set(targets)
 
-    def __call__(self, target_class):
+    def __call__(self, target_func):
 
-        @functools.wraps(target_class)
+        @functools.wraps(target_func)
         def fn_with_mocked_layers(*args, **kwargs):
+            kwords = {
+                "kernel_constraint", "bias_constraint",
+                "beta_constraint", "gamma_constraint"
+            }
             stored_layers = {}
+            scope = target_func.__globals__
 
-            for item in self._scope.values():
-                if inspect.isclass(item):
-                    print("inside wrap", item)
+            for key, item in scope.items():
+                if isclass(item) and item in self._targets:
 
-            for key, item in self._scope.items():
-                if inspect.isclass(item) and item in self._targets:
                     @functools.wraps(item)
                     def mocked_layer(
                             *args,
-                            kernel_constraint=self._constraint,
                             _layer_ref=item,
                             **kwargs
                             ):
-                        return _layer_ref(
-                            *args,
-                            kernel_constraint=kernel_constraint,
-                            **kwargs
-                        )
+                        argspec = set(signature(_layer_ref).parameters.keys())
+                        kdefaults = {
+                            kword: self._constraint for kword in kwords
+                            if (kword in argspec) and (kword not in kwargs)
+                        }
+                        return _layer_ref(*args, **kdefaults, **kwargs)
 
                     stored_layers[key] = item
-                    self._scope[key] = mocked_layer
+                    scope[key] = mocked_layer
 
             try:
-                res = target_class(*args, **kwargs)
+                res = target_func(*args, **kwargs)
             finally:
-                self._scope.update(stored_layers)
+                scope.update(stored_layers)
             return res
 
         return fn_with_mocked_layers
