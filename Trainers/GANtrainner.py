@@ -51,10 +51,13 @@ class KerasGANTrainner:
             self,
             generator: keras.Model, discriminator: keras.Model,
             gen_optimizer: keras.optimizers.Optimizer,
+            gen_loss: keras.losses.Loss,
             disc_optimizer: keras.optimizers.Optimizer,
+            disc_loss: keras.losses.Loss,
             out_dir: str,
             gen_metrics: keras.metrics.Metric = None,
             disc_metrics: keras.metrics.Metric = None,
+            disc_update_per_batch: int = 1
             ):
         """Create a trainner for GAN architecture
 
@@ -63,15 +66,22 @@ class KerasGANTrainner:
             discriminator (keras.Model): discriminator model
             gen_optimizer, disc_optimizer (keras.optimers.Optimizer):
                 the optimizer for training generator/discriminator
+            gen_loss, disc_loss (keras.losses.Loss):
+                the loss fcuntion for generator/discriminator
             gen_metrics, disc_metrics (keras.metrics.Metric, optional):
                 Metrics for generator and discrimnator to monitor.
                 Defaults to None.
+            disc_update_per_batch (int):
+                number of iteration per batch on discriminator
         """
         self._gen = generator
         self._gen_optimzier = gen_optimizer
+        self._gen_loss = gen_loss
 
         self._disc = discriminator
         self._disc_optimzier = disc_optimizer
+        self._disc_loss = disc_loss
+        self._disc_update_per_batch = disc_update_per_batch
 
         if not pathlib.Path(str(out_dir)).is_dir():
             msg = "Invalid output dir, got {}"
@@ -88,7 +98,7 @@ class KerasGANTrainner:
             database: DataBase,
             batch_size: int = 8,
             max_epoch: int = 200,
-            load_best: bool = True
+            load_best: bool = True,
             ):
 
         if load_best:
@@ -144,29 +154,35 @@ class KerasGANTrainner:
         """Single train step - optimizer minimize a batch over two models"""
         batch = gt_imgs.shape[0]
 
-        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+        # update discriminator
+        for _ in range(self._disc_update_per_batch):
+            with tf.GradientTape() as disc_tape:
+                fake_imgs = self._gen(noises, training=True)
+
+                true_pred = self._disc(gt_imgs, training=True)
+                fake_pred = self._disc(fake_imgs, training=True)
+                pred = tf.concat([true_pred, fake_pred], axis=-1)
+
+                true_lb = 0.9 * tf.ones_like(true_pred)
+                fake_lb = tf.zeros_like(fake_pred)
+                disc_lb = tf.concat([true_lb, fake_lb], axis=-1)
+
+                disc_loss = self._disc_loss(disc_lb, pred)
+
+            disc_grad = disc_tape.gradient(
+                disc_loss,
+                self._disc.trainable_variables
+            )
+            self._disc_optimzier.apply_gradients(
+                zip(disc_grad, self._disc.trainable_variables)
+            )
+
+        # update generator
+        with tf.GradientTape() as gen_tape:
             fake_imgs = self._gen(noises, training=True)
-
-            true_pred = self._disc(gt_imgs, training=True)
             fake_pred = self._disc(fake_imgs, training=True)
-            pred = tf.concat([true_pred, fake_pred], axis=-1)
-
-            true_lb = 0.9 * tf.ones_like(true_pred)
-            fake_lb = tf.zeros_like(fake_pred)
-            disc_lb = tf.concat([true_lb, fake_lb], axis=-1)
-
             gen_lb = tf.ones_like(fake_pred)
-
-            disc_loss = BinaryCrossentropy(from_logits=True)(disc_lb, pred)
-            gen_loss = BinaryCrossentropy(from_logits=True)(gen_lb, fake_pred)
-
-        disc_grad = disc_tape.gradient(
-            disc_loss,
-            self._disc.trainable_variables
-        )
-        self._disc_optimzier.apply_gradients(
-            zip(disc_grad, self._disc.trainable_variables)
-        )
+            gen_loss = self._gen_loss(gen_lb, fake_pred)
 
         gen_grad = gen_tape.gradient(
             gen_loss,

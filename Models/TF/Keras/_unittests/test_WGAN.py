@@ -50,8 +50,22 @@ class TestWeightsClip:
 
 class TestWGAN:
 
-    def test_weight_updates(self):
-        """Weights should be restrcited into constraint range"""
+    def test_generator_output(self):
+        """Generator should yield image with range [0, 1]"""
+        input_shape = (64, 64, 3)
+        latent_size = 5
+
+        inputs = Input(latent_size)
+        generator = WGenerator(image_shape=input_shape)(inputs)
+        generator = Model(inputs=inputs, outputs=generator)
+
+        prior = tf.random.normal([1, latent_size])
+        pred = generator.predict(prior)
+        assert np.all(pred <= 1)
+        assert np.all(0 <= pred)
+
+    def test_discriminator_weight_updates(self):
+        """Discriminator weights should be restrcited into constraint range"""
 
         inputs = Input((64, 64, 3))
         discriminator = WDiscriminator()(inputs)
