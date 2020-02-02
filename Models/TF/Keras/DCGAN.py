@@ -1,9 +1,10 @@
 import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras.layers import (
+import tensorflow.keras.backend as K from tensorflow.keras.layers import (
     Dense, BatchNormalization, LeakyReLU, ReLU,
     Reshape, Conv2DTranspose, Conv2D, Flatten
 )
+from tensorflow.keras.losses import BinaryCrossentropy  # noqa: E402
 
 
 def _batch_relu(inputs: tf.Tensor):
@@ -18,6 +19,23 @@ def _batch_leaky(inputs: tf.Tensor):
     bn = BatchNormalization()(inputs)
     leaky = LeakyReLU()(bn)
     return leaky
+
+
+class SmoothedBCELoss:
+    """Smoothed the groud truth for real into 0.9
+
+    Also, the ground truth is assumed to be {-1: fake, 1: real},
+    but before calculating BCE, the fake label will be modified to 0,
+    as it should
+    """
+
+    def __init__(self, from_logits=True):
+        self._loss = BinaryCrossentropy(from_logits=from_logits)
+
+    def __call__(self, y_true, y_pred):
+        y_true = K.clip(y_true, 0.0, 1.0)
+        y_true = y_true * 0.9
+        return self._loss(y_true, y_pred)
 
 
 class Generator:

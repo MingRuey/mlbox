@@ -15,7 +15,6 @@ logging.basicConfig(
 import tensorflow as tf  # noqa: E402
 import tensorflow.keras as keras  # noqa: E402
 from tensorflow.keras.layers import SimpleRNN, LSTM, Dense   # noqa: E402
-from tensorflow.keras.losses import BinaryCrossentropy  # noqa: E402
 from tensorflow.keras.optimizers import SGD, Adam  # noqa: E402
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
@@ -23,26 +22,6 @@ from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 from MLBOX.Database.dataset import DataBase  # noqa: E402
 from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
 from MLBOX.Trainers.TF.Keras_Callbacks import ModelLogger, TrainRecord  # noqa: E402
-
-
-def disc_loss_fn(true_pred: tf.Tensor, fake_pred: tf.Tensor):
-    """Loss function for discriminator
-
-    Args:
-        true_pred (tf.Tensor): the predictions of discriminator of true images
-        fake_pred (tf.Tensor): the predictions of discriminator of fake images
-    """
-    true_lb = 0.9 * tf.ones_like(true_pred)
-    fake_lb = tf.zeros_like(fake_pred)
-
-    lb = tf.stack([true_lb, fake_lb], axis=-1)
-    pred = tf.stack([true_pred, fake_pred], axis=-1)
-    return keras.losses.binary_crossentropy(lb, pred)
-
-
-def gen_loss_fn(fake_pred: tf.Tensor):
-    lb = tf.ones_like(fake_pred)
-    return keras.losses.binary_crossentropy(lb, fake_pred)
 
 
 class KerasGANTrainner:
@@ -163,8 +142,8 @@ class KerasGANTrainner:
                 fake_pred = self._disc(fake_imgs, training=True)
                 pred = tf.concat([true_pred, fake_pred], axis=-1)
 
-                true_lb = 0.9 * tf.ones_like(true_pred)
-                fake_lb = tf.zeros_like(fake_pred)
+                true_lb = tf.ones_like(true_pred)
+                fake_lb = -1 * tf.ones_like(fake_pred)
                 disc_lb = tf.concat([true_lb, fake_lb], axis=-1)
 
                 disc_loss = self._disc_loss(disc_lb, pred)
