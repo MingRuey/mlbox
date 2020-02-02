@@ -19,7 +19,7 @@ from tensorflow.keras.optimizers import SGD, Adam  # noqa: E402
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 
-from MLBOX.Datbase.dataset import DataBase  # noqa: E402
+from MLBOX.Database.dataset import DataBase  # noqa: E402
 from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
 from MLBOX.Trainers.TF.Keras_Callbacks import ModelLogger, TrainRecord  # noqa: E402
 
@@ -113,7 +113,7 @@ class KerasBaseTrainner:
                     ),
                 ReduceLROnPlateau(
                     factor=lr_decay_factor,
-                    patience=early_stop_patience // 2,
+                    patience=early_stop_patience // 3,
                     min_delta=1e-4,
                     cooldown=2,
                     min_lr=1e-6,
