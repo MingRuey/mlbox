@@ -3,7 +3,6 @@ import tensorflow.keras as keras
 import tensorflow.keras.backend as K
 from tensorflow.keras.constraints import Constraint
 from tensorflow.keras.layers import Dense, Conv2D, BatchNormalization
-from tensorflow.keras.layers import Activation, Lambda
 
 from MLBOX.Models.TF.Keras.wrappers.layer_wrappers import ConstraintWrapper
 from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
@@ -35,16 +34,7 @@ class WasserteinLoss:
 
 
 class WGenerator(Generator):
-
-    @staticmethod
-    def rescale(x: tf.Tensor) -> tf.Tensor:
-        return 0.5 * (x + 1.0)
-
-    def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
-        raw_ouput = super().__call__(inputs)
-        output = Activation("tanh")(raw_ouput)
-        output = Lambda(WGenerator.rescale)(output)
-        return output
+    pass
 
 
 class WDiscriminator(Discriminator):
