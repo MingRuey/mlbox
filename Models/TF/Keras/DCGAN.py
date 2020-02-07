@@ -1,8 +1,9 @@
 import tensorflow as tf
 import tensorflow.keras as keras
-import tensorflow.keras.backend as K from tensorflow.keras.layers import (
+import tensorflow.keras.backend as K
+from tensorflow.keras.layers import (
     Dense, BatchNormalization, LeakyReLU, ReLU,
-    Reshape, Conv2DTranspose, Conv2D, Flatten
+    Reshape, Conv2DTranspose, Conv2D, Flatten, Lambda
 )
 from tensorflow.keras.losses import BinaryCrossentropy  # noqa: E402
 
@@ -33,7 +34,7 @@ class SmoothedBCELoss:
         self._loss = BinaryCrossentropy(from_logits=from_logits)
 
     def __call__(self, y_true, y_pred):
-        y_true = K.clip(y_true, 0.0, 1.0)
+        y_true = 0.5 * (y_true + 1.0)
         y_true = y_true * 0.9
         return self._loss(y_true, y_pred)
 
@@ -46,6 +47,10 @@ class Generator:
             raise ValueError(msg.format(image_shape))
         h, w, *_ = image_shape
         self._h, self._w = h // 16, w // 16
+
+    @staticmethod
+    def rescale(x: tf.Tensor) -> tf.Tensor:
+        return 0.5 * (x + 1.0)
 
     def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
         dense = Dense(self._h * self._w * 1024)(inputs)
@@ -76,7 +81,8 @@ class Generator:
             activation="tanh"
         )(conv2)
 
-        return conv3
+        output = Lambda(Generator.rescale)(conv3)
+        return output
 
 
 class Discriminator:

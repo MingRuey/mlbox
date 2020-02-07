@@ -89,7 +89,7 @@ class KerasGANTrainner:
                 print("Generator load pretrain weights from {}".format(filename))
 
             disc_weights = list(pathlib.Path(self.out_dir).glob("Disc_*.h5"))
-            if gen_weights:
+            if disc_weights:
                 disc_weights = disc_weights[0]
                 filename = disc_weights.name
                 self._disc.load_weights(str(disc_weights))
