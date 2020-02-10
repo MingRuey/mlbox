@@ -46,7 +46,7 @@ class Generator:
             msg = "Image height/width must be multiple of 16, got: {}"
             raise ValueError(msg.format(image_shape))
         h, w, *_ = image_shape
-        self._h, self._w = h // 16, w // 16
+        self._h, self._w = h // 32, w // 32
 
     @staticmethod
     def rescale(x: tf.Tensor) -> tf.Tensor:
@@ -58,72 +58,82 @@ class Generator:
         dense = _batch_leaky(dense)
 
         conv1 = Conv2DTranspose(
-            filters=512, kernel_size=(5, 5), strides=(2, 2),
-            padding="same", use_bias=False
+            filters=512, kernel_size=(4, 4), strides=(2, 2),
+            padding="same", use_bias=False, kernel_initializer="he_normal"
         )(dense)
         conv1 = _batch_relu(conv1)
 
         conv2 = Conv2DTranspose(
-            filters=256, kernel_size=(5, 5), strides=(2, 2),
-            padding="same", use_bias=False
+            filters=256, kernel_size=(4, 4), strides=(2, 2),
+            padding="same", use_bias=False, kernel_initializer="he_normal"
         )(conv1)
         conv2 = _batch_relu(conv2)
 
         conv2 = Conv2DTranspose(
-            filters=128, kernel_size=(5, 5), strides=(2, 2),
-            padding="same", use_bias=False,
+            filters=128, kernel_size=(4, 4), strides=(2, 2),
+            padding="same", use_bias=False, kernel_initializer="he_normal"
         )(conv2)
         conv2 = _batch_relu(conv2)
 
         conv3 = Conv2DTranspose(
-            filters=3, kernel_size=(5, 5), strides=(2, 2),
-            padding="same", use_bias=False,
-            activation="tanh"
+            filters=64, kernel_size=(4, 4), strides=(2, 2),
+            padding="same", use_bias=False, kernel_initializer="he_normal"
         )(conv2)
+        conv3 = _batch_relu(conv3)
 
-        output = Lambda(Generator.rescale)(conv3)
+        conv4 = Conv2DTranspose(
+            filters=3, kernel_size=(4, 4), strides=(2, 2),
+            padding="same", kernel_initializer="he_normal",
+            use_bias=False, activation="tanh"
+        )(conv3)
+        conv4 = _batch_relu(conv4)
+
+        output = Lambda(Generator.rescale)(conv4)
         return output
 
 
 class Discriminator:
 
-    def __init__(self):
-        pass
+    def __init__(self, n_out: int = 1):
+        self._n_out = n_out
 
     def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
         conv1 = Conv2D(
-            filters=128, kernel_size=(5, 5), strides=(2, 2),
-            padding='same'
+            filters=64, kernel_size=(4, 4), strides=(2, 2),
+            padding='same', kernel_initializer="he_normal"
         )(inputs)
         conv1 = _batch_leaky(conv1)
 
         conv2 = Conv2D(
-            filters=256, kernel_size=(5, 5), strides=(2, 2),
-            padding='same'
+            filters=128, kernel_size=(4, 4), strides=(2, 2),
+            padding='same', kernel_initializer="he_normal"
         )(conv1)
         conv2 = _batch_leaky(conv2)
 
         conv3 = Conv2D(
-            filters=512, kernel_size=(5, 5), strides=(2, 2),
-            padding='same'
+            filters=256, kernel_size=(4, 4), strides=(2, 2),
+            padding='same', kernel_initializer="he_normal"
         )(conv2)
         conv3 = _batch_leaky(conv3)
 
         conv4 = Conv2D(
-            filters=1024, kernel_size=(5, 5), strides=(2, 2),
-            padding='same'
+            filters=512, kernel_size=(4, 4), strides=(2, 2),
+            padding='same', kernel_initializer="he_normal"
         )(conv3)
         conv4 = _batch_leaky(conv4)
 
-        dense = Flatten()(conv4)
-        dense = Dense(1)(dense)
+        conv5 = Conv2D(
+            filters=1024, kernel_size=(4, 4), strides=(2, 2),
+            padding='same', kernel_initializer="he_normal"
+        )(conv4)
+        conv5 = _batch_leaky(conv5)
+
+        dense = Flatten()(conv5)
+        dense = Dense(self._n_out)(dense)
         return dense
 
 
 class ResDiscriminator:
-
-    def __init__(self):
-        pass
 
     def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
         resnet = keras.applications.ResNet50V2(
