@@ -21,7 +21,7 @@ from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 
 from MLBOX.Database.dataset import DataBase  # noqa: E402
 from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
-from MLBOX.Trainers.TF.Keras_Callbacks import ModelLogger, TrainRecord  # noqa: E402
+from MLBOX.Trainers.TF.callbacks import ModelLogger, TrainRecord  # noqa: E402
 
 
 class KerasGANTrainner:
