@@ -12,6 +12,21 @@ from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
 from MLBOX.Models.TF.Keras.DCGAN import _batch_relu, _batch_leaky
 
 
+class AdvLoss:
+    """Adversarial loss for Discriminator and Generator"""
+    pass
+
+
+class ContextLoss:
+    """Contextual loss for Generator reconstruction"""
+    pass
+
+
+class EncoderLoss:
+    """Loss on similarities between latent vectors in Generator"""
+    pass
+
+
 class GANomalyG:
 
     def __init__(self, latent_size: int, image_shape: tuple):
