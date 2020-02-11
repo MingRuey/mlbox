@@ -22,6 +22,7 @@ from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 from MLBOX.Database.dataset import DataBase  # noqa: E402
 from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
 from MLBOX.Trainers.TF.callbacks import ModelLogger, TrainRecord  # noqa: E402
+from MLBOX.Trainers.TF.Metrics import SSIM  # noqa: E402
 
 
 class KerasGANTrainner:
@@ -97,27 +98,29 @@ class KerasGANTrainner:
 
         dataset = database.get_dataset(epoch=max_epoch, batchsize=batch_size)
         dataset = iter(dataset)
-        steps_per_epoch = database.data_count // batch_size
 
         for epoch in range(max_epoch):
             print("epoch {} starts".format(epoch))
-            total_gen_loss = 0
-            total_disc_loss = 0
+            epoch_disc_loss = keras.metrics.Mean()
+            epoch_gen_loss = keras.metrics.Mean()
+            epoch_ssim = SSIM()
+
             for batch in range(steps_per_epoch):
                 gt_imgs, noises = next(dataset)
-                gen_loss, disc_loss = self._train_step(gt_imgs, noises)
+                gen_loss, disc_loss, fake_imgs = self._train_step(gt_imgs, noises)
 
-                total_gen_loss += gen_loss
-                total_disc_loss += disc_loss
+                epoch_disc_loss(disc_loss)
+                epoch_gen_loss(gen_loss)
+                epoch_ssim(gt_imgs, fake_imgs)
 
                 msg = "    batch {:03d} - Gen loss: {:.5f}; Disc loss: {:.5f} (per img)"
                 print(msg.format(batch, gen_loss, disc_loss), end="\r")
 
-            avg_gen_loss = total_gen_loss / steps_per_epoch
-            avg_disc_loss = total_disc_loss / steps_per_epoch
-
-            msg = "epoch {} ends, Gen loss: {}, Disc loss: {} (per batch)"
-            print(msg.format(epoch, avg_gen_loss, avg_disc_loss))
+            msg = "epoch {} ends, Gen loss: {}, Disc loss: {}, MSSIM: {} (per batch)"
+            print(msg.format(
+                epoch, epoch_gen_loss.result(), epoch_disc_loss.result(),
+                epoch_ssim.result()
+            ))
 
             file_gen = os.path.join(
                 self.tmp_dir, self._gen_name.format(epoch, avg_gen_loss)
@@ -170,4 +173,4 @@ class KerasGANTrainner:
         self._gen_optimzier.apply_gradients(
             zip(gen_grad, self._gen.trainable_variables)
         )
-        return disc_loss / (2*batch), gen_loss / batch
+        return disc_loss / (2*batch), gen_loss / batch, fake_imgs
