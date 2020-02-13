@@ -43,7 +43,7 @@ def _down_sample(
         pad_type: UNetPadType
         ) -> tf.Tensor:
     conv1 = _conv3_relu(inputs, n_filter=n_filter, padding=pad_type.value)
-    conv2 = _conv3_relu(bn1, n_filter=n_filter, padding=pad_type.value)
+    conv2 = _conv3_relu(conv1, n_filter=n_filter, padding=pad_type.value)
     pool = MaxPooling2D(pool_size=(2, 2))(conv2)
     return pool, conv2
 
