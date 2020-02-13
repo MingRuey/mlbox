@@ -12,14 +12,13 @@ import tensorflow.keras as keras  # noqa: E402
 import pytest  # noqa: E402
 
 from MLBOX.Trainers.TF.Metrics import SSIM  # noqa: E402
+from MLBOX.Trainers.TF._unittests.configs import SAMPLE_DIR  # noqa: E402
 
-SAMPLE_ROOT = pathlib.Path(__file__).parent.joinpath("samples")
-assert SAMPLE_ROOT.is_dir()
 
-BW_SAMPLE = SAMPLE_ROOT.joinpath("bw_sample.tiff")
+BW_SAMPLE = SAMPLE_DIR.joinpath("bw_sample.tiff")
 assert BW_SAMPLE.is_file()
 
-COLOR_SAMPLE = SAMPLE_ROOT.joinpath("color_sample.jpg")
+COLOR_SAMPLE = SAMPLE_DIR.joinpath("color_sample.jpg")
 assert COLOR_SAMPLE.is_file()
 
 
