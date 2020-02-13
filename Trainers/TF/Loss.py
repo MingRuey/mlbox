@@ -29,4 +29,6 @@ class SSIMLoss(Loss):
         }
 
     def __call__(self, y_true, y_pred):
-        return -1 * tf.image.ssim(y_true, y_pred, **self._params)
+        return tf.reduce_mean(
+            1.0 - tf.image.ssim(y_true, y_pred, **self._params)
+        )
