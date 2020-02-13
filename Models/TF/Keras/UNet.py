@@ -20,6 +20,7 @@ def _conv3_relu(inputs: tf.Tensor, n_filter: int, padding="reflect", use_batchno
         padding_kw = "valid"
     elif padding == "valid":
         padded = inputs
+        padding_kw = "valid"
     elif padding == "zero":
         padded = inputs
         padding_kw = "same"
