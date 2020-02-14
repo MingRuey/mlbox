@@ -9,11 +9,11 @@ from MLBOX.Models.TF.Keras.UNet import UNET
 
 class SkipGANomalyG:
 
-    def __init__(self, *args, **kwargs):
-        self._unet = UNET(*args, **kwargs)
+    def __init__(self):
+        self._unet = UNET(n_class=3)
 
     def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
-        return self._unet.forward(input)
+        return self._unet.forward(inputs)
 
 
 class SkipGANomalyD:

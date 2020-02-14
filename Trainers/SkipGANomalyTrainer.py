@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 import pathlib
@@ -78,7 +79,6 @@ class SkipGANomalyTrainer:
         self._disc = discriminator
         self._disc_optimzier = disc_optimizer
         self._disc_update_per_batch = disc_update_per_batch
-        self._disc_name = "Disc_{:03d}_{:.5f}.h5"
 
         if not pathlib.Path(str(out_dir)).is_dir():
             msg = "Invalid output dir, got {}"
@@ -135,7 +135,7 @@ class SkipGANomalyTrainer:
                 epoch_latent(losses.latent)
 
                 msg = "    batch {:03d} - {}"
-                print(msg.format(batch, format_losses(losses)))
+                print(msg.format(batch, format_losses(losses)), end="\r")
 
             msg = "epoch {} ends - {}"
             epoch_loss = LossCollections(
@@ -204,6 +204,6 @@ class SkipGANomalyTrainer:
         )
         return LossCollections(
             disc=disc_loss / (2*batch), gen=gen_loss / batch,
-            adv=adv_loss / batch, construct=construct_loss / batch,
+                adv=adv_loss / batch, construct=construct_loss / batch,
             latent=latent_loss / batch
         )
