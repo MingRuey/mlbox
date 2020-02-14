@@ -264,7 +264,7 @@ class DataBase:
         dataset = dataset.map(
             self.parser,
             num_parallel_calls=OUTPUT_PARALLEL_CALL)
-        dataset = dataset.shuffle(100 * batchsize)
+        dataset = dataset.shuffle(5000 * batchsize, seed=42, reshuffle_each_iteration=False)
         dataset = dataset.repeat(epoch)
         dataset = dataset.batch(batchsize, drop_remainder=True)
         dataset = dataset.prefetch(OUTPUT_BUFFER_TO_BATCH_RATIO)

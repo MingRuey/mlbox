@@ -59,7 +59,7 @@ class KerasGANTrainner:
         self._gen_optimzier = gen_optimizer
         self._gen_loss = gen_loss
         self._constrcut_loss = SSIMLoss(max_val=1)
-        self._gen_name = "Gen_{:03d}_{:.5f}.h5"
+        self._gen_name = "Gen_{:03d}_loss-{:.5f}_construct-{:.5f}.h5"
 
         self._disc = discriminator
         self._disc_optimzier = disc_optimizer
@@ -115,10 +115,10 @@ class KerasGANTrainner:
                 disc_loss, gen_loss, adv_loss, construct_loss = \
                     self._train_step(gt_imgs, noises)
 
+                epoch_gen_loss(gen_loss)
                 epoch_disc_loss(disc_loss)
                 epoch_adv_loss(adv_loss)
                 epoch_construct_loss(construct_loss)
-                epoch_gen_loss(gen_loss)
 
                 msg = "    batch {:03d} - Gen loss: {:.5f} (adv: :{:.5f}, construct: {:.5f}); Disc loss: {:.5f}"
                 print(msg.format(batch, gen_loss, adv_loss, construct_loss, disc_loss), end="\r")
@@ -136,7 +136,7 @@ class KerasGANTrainner:
             self._disc.save_weights(file_disc)
 
             file_gen = os.path.join(
-                self.tmp_dir, self._gen_name.format(epoch, epoch_gen_loss.result())
+                self.tmp_dir, self._gen_name.format(epoch, epoch_gen_loss.result(), epoch_construct_loss.result())
             )
             self._gen.save_weights(file_gen)
 
