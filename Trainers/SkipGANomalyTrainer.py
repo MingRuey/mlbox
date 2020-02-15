@@ -72,13 +72,14 @@ class SkipGANomalyTrainer:
 
         self._gen = generator
         self._gen_optimzier = gen_optimizer
-        self._constrcut_loss = construct_loss
+        self._construct_loss = construct_loss
         self._latent_loss = latent_loss
         self._gen_name = "Gen_{:03d}_{:.5f}.h5"
 
         self._disc = discriminator
         self._disc_optimzier = disc_optimizer
         self._disc_update_per_batch = disc_update_per_batch
+        self._disc_name = "Disc_{:03d}_{:.5f}.h5"
 
         if not pathlib.Path(str(out_dir)).is_dir():
             msg = "Invalid output dir, got {}"
@@ -91,11 +92,28 @@ class SkipGANomalyTrainer:
 
     def train(
             self,
-            database: DataBase,
+            train_db: DataBase,
+            valid_normals: DataBase,
+            valid_defects: DataBase,
             batch_size: int = 8,
             max_epoch: int = 200,
             load_best: bool = True,
             ):
+        """Train on SkipGANomaly
+
+        Args:
+            train_db (DataBase):
+                the training database, all images should be normal samples.
+            valid_normals:
+                the validation database,
+                all images are considered normal for acc metric.
+            valid_normals:
+                the validation database,
+                all images are considered defect for acc metric.
+            batch_size (int, optional): Defaults to 8.
+            max_epoch (int, optional): Defaults to 200.
+            load_best (bool, optional): Defaults to True.
+        """
 
         if load_best:
             gen_weights = list(pathlib.Path(self.out_dir).glob("Gen_*.h5"))
@@ -112,9 +130,16 @@ class SkipGANomalyTrainer:
                 self._disc.load_weights(str(disc_weights))
                 print("Discriminator load pretrain weights from {}".format(filename))
 
-        dataset = database.get_dataset(epoch=max_epoch, batchsize=batch_size)
-        dataset = iter(dataset)
-        steps_per_epoch = database.data_count // batch_size
+        trainset = train_db.get_dataset(epoch=max_epoch, batchsize=batch_size)
+        trainset = iter(trainset)
+        steps_per_epoch = train_db.data_count // (100 * batch_size)
+
+        n_steps = valid_normals.data_count // batch_size
+        d_steps = valid_defects.data_count // batch_size
+        valid_n = valid_normals.get_dataset(epoch=max_epoch, batchsize=batch_size)
+        valid_n = iter(valid_n)
+        valid_d = valid_defects.get_dataset(epoch=max_epoch, batchsize=batch_size)
+        valid_d = iter(valid_d)
 
         for epoch in range(max_epoch):
             print("epoch {} starts".format(epoch))
@@ -125,7 +150,7 @@ class SkipGANomalyTrainer:
             epoch_latent = keras.metrics.Mean()
 
             for batch in range(steps_per_epoch):
-                gt_imgs = next(dataset)
+                gt_imgs = next(trainset)
                 losses = self._train_step(gt_imgs)
 
                 epoch_disc(losses.disc)
@@ -145,6 +170,12 @@ class SkipGANomalyTrainer:
             )
             print(msg.format(epoch, format_losses(epoch_loss)))
 
+            # validations
+            n_construct, n_latent = self._validate(valid_n, n_steps)
+            d_construct, d_latent = self._validate(valid_d, d_steps)
+            print("    -- normal construct: {}, latnet: {}".format(n_construct, n_latent))
+            print("    -- defect construct: {}, latnet: {}".format(d_construct, d_latent))
+
             file_disc = os.path.join(
                 self.tmp_dir, self._disc_name.format(epoch, epoch_disc.result())
             )
@@ -154,6 +185,16 @@ class SkipGANomalyTrainer:
                 self.tmp_dir, self._gen_name.format(epoch, epoch_gen.result())
             )
             self._gen.save_weights(file_gen)
+
+    def _validate(self, dataset: tf.data.Dataset, steps: int):
+        epoch_construct = keras.metrics.Mean()
+        epoch_latent = keras.metrics.Mean()
+        for _ in range(steps):
+            gt_imgs = next(dataset)
+            construct_loss, latent_loss = self._validate_step(gt_imgs)
+            epoch_construct(construct_loss)
+            epoch_latent(latent_loss)
+        return epoch_construct.result(), epoch_latent.result()
 
     @tf.function
     def _train_step(self, gt_imgs: tf.Tensor):
@@ -188,7 +229,7 @@ class SkipGANomalyTrainer:
             fake_latent, fake_pred = self._disc(fake_imgs, training=True)
             true_latent, _ = self._disc(gt_imgs, training=True)
 
-            construct_loss = self._constrcut_loss(fake_imgs, gt_imgs)
+            construct_loss = self._construct_loss(gt_imgs, fake_imgs)
             latent_loss = self._latent_loss(true_latent, fake_latent)
 
             gen_lb = tf.ones_like(fake_pred)
@@ -204,6 +245,16 @@ class SkipGANomalyTrainer:
         )
         return LossCollections(
             disc=disc_loss / (2*batch), gen=gen_loss / batch,
-                adv=adv_loss / batch, construct=construct_loss / batch,
+            adv=adv_loss / batch, construct=construct_loss / batch,
             latent=latent_loss / batch
         )
+
+    @tf.function
+    def _validate_step(self, gt_imgs: tf.Tensor):
+        fake_imgs = self._gen(gt_imgs, training=False)
+        fake_latent, fake_pred = self._disc(fake_imgs, training=False)
+        true_latent, _ = self._disc(gt_imgs, training=False)
+
+        construct_loss = self._construct_loss(gt_imgs, fake_imgs)
+        latent_loss = self._latent_loss(true_latent, fake_latent)
+        return construct_loss, latent_loss
