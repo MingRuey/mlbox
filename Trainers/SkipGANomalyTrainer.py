@@ -132,7 +132,7 @@ class SkipGANomalyTrainer:
 
         trainset = train_db.get_dataset(epoch=max_epoch, batchsize=batch_size)
         trainset = iter(trainset)
-        steps_per_epoch = train_db.data_count // (100 * batch_size)
+        steps_per_epoch = train_db.data_count // batch_size
 
         n_steps = valid_normals.data_count // batch_size
         d_steps = valid_defects.data_count // batch_size
