@@ -1,52 +1,32 @@
-"""
-Implement following papers:
-
-GANomaly: Semi-Supervised Anomaly Detection via Adversarial Training
-"""
-from typing import List
-
 import tensorflow as tf
 import tensorflow.keras as keras
+from tensorflow.keras import Input
+from tensorflow.keras.layers import Dense
 
 from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
-from MLBOX.Models.TF.Keras.DCGAN import _batch_relu, _batch_leaky
-
-
-class AdvLoss:
-    """Adversarial loss for Discriminator and Generator"""
-    pass
-
-
-class ContextLoss:
-    """Contextual loss for Generator reconstruction"""
-    pass
-
-
-class EncoderLoss:
-    """Loss on similarities between latent vectors in Generator"""
-    pass
 
 
 class GANomalyG:
 
-    def __init__(self, latent_size: int, image_shape: tuple):
-        self._shape = image_shape
-        self.decoder = Generator(image_shape)
-        self.encoder = Discriminator(n_out=latent_size)
+    def __init__(self, image_shape):
+        self._encoder = Discriminator(return_flatten=True)
+        self._gen = Generator(image_shape=image_shape)
 
     def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
-        # note that self.encoder always create new tensor on __call__
-        # so latent_i and latent_o have difference parametrizations
-        latent_i = self.encoder(inputs)
-        generated = self.decoder(latent_i)
-        latent_o = self.encoder(generated)
-        return generated, latent_i, latent_o
+        encoded = self._encoder(inputs)
+        generated = self._gen(encoded)
+        return generated
 
 
-class GANomalyD(Discriminator):
+class GANomalyD:
 
     def __init__(self):
-        super().__init__(n_out=1)
+        self._disc = Discriminator(return_flatten=True)
+
+    def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
+        latent = self._disc(inputs)
+        dense = Dense(1)(latent)
+        return latent, dense
 
 
 if __name__ == "__main__":
