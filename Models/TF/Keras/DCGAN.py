@@ -53,8 +53,8 @@ class Generator:
         return 0.5 * (x + 1.0)
 
     def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
-        dense = Dense(self._h * self._w * 1024)(inputs)
-        dense = Reshape((self._h, self._w, 1024))(dense)
+        dense = Dense(self._h * self._w)(inputs)
+        dense = Reshape((self._h, self._w, 1))(dense)
         dense = _batch_leaky(dense)
 
         conv1 = Conv2DTranspose(
@@ -87,8 +87,8 @@ class Generator:
 
 class Discriminator:
 
-    def __init__(self):
-        pass
+    def __init__(self, return_flatten: bool = False):
+        self._return_flatten = return_flatten
 
     def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
         conv1 = Conv2D(
@@ -115,9 +115,12 @@ class Discriminator:
         )(conv3)
         conv4 = _batch_leaky(conv4)
 
-        dense = Flatten()(conv4)
-        dense = Dense(1)(dense)
-        return dense
+        latent = Flatten()(conv4)
+        if self._return_flatten:
+            return latent
+        else:
+            dense = Dense(1)(latent)
+            return dense
 
 
 class ResDiscriminator:

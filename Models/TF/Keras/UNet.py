@@ -2,7 +2,7 @@ from enum import Enum
 import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, BatchNormalization
-from tensorflow.keras.layers import Cropping2D, Concatenate
+from tensorflow.keras.layers import Cropping2D, Concatenate, Lambda
 
 
 class UNetPadType(Enum):
@@ -13,13 +13,18 @@ class UNetPadType(Enum):
 
 def _conv3_relu(inputs: tf.Tensor, n_filter: int, padding="reflect", use_batchnorm=True) -> tf.Tensor:
     if padding == "reflect":
-        padded = tf.pad(inputs, [[0, 0], [1, 1], [1, 1], [0, 0]], "REFLECT")
+        padded = Lambda(
+            lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], "REFLECT")
+        )(inputs)
         padding_kw = "valid"
     elif padding == "symmertric":
-        padded = tf.pad(inputs, [[0, 0], [1, 1], [1, 1], [0, 0]], "SYMMETRIC")
+        padded = Lambda(
+            lambda x: tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], "SYMMETRIC")
+        )(inputs)
         padding_kw = "valid"
     elif padding == "valid":
         padded = inputs
+        padding_kw = "valid"
     elif padding == "zero":
         padded = inputs
         padding_kw = "same"
@@ -43,7 +48,7 @@ def _down_sample(
         pad_type: UNetPadType
         ) -> tf.Tensor:
     conv1 = _conv3_relu(inputs, n_filter=n_filter, padding=pad_type.value)
-    conv2 = _conv3_relu(bn1, n_filter=n_filter, padding=pad_type.value)
+    conv2 = _conv3_relu(conv1, n_filter=n_filter, padding=pad_type.value)
     pool = MaxPooling2D(pool_size=(2, 2))(conv2)
     return pool, conv2
 

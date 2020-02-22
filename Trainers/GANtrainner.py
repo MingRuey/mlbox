@@ -21,7 +21,9 @@ from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 
 from MLBOX.Database.dataset import DataBase  # noqa: E402
 from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
-from MLBOX.Trainers.TF.Keras_Callbacks import ModelLogger, TrainRecord  # noqa: E402
+from MLBOX.Trainers.TF.Callbacks import ModelLogger, TrainRecord  # noqa: E402
+from MLBOX.Trainers.TF.Metrics import SSIM  # noqa: E402
+from MLBOX.Trainers.TF.Loss import SSIMLoss  # noqa: E402
 
 
 class KerasGANTrainner:
@@ -56,21 +58,23 @@ class KerasGANTrainner:
         self._gen = generator
         self._gen_optimzier = gen_optimizer
         self._gen_loss = gen_loss
+        self._constrcut_loss = SSIMLoss(max_val=1)
+        self._gen_name = "Gen_{:03d}_loss-{:.5f}_construct-{:.5f}.h5"
 
         self._disc = discriminator
         self._disc_optimzier = disc_optimizer
         self._disc_loss = disc_loss
         self._disc_update_per_batch = disc_update_per_batch
+        self._disc_name = "Disc_{:03d}_{:.5f}.h5"
 
         if not pathlib.Path(str(out_dir)).is_dir():
             msg = "Invalid output dir, got {}"
             raise ValueError(msg.format(out_dir))
+
         self.out_dir = str(out_dir)
         self.tmp_dir = pathlib.Path(out_dir).joinpath("tmp")
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
         self.tmp_dir = str(self.tmp_dir)
-        self._gen_name = "Gen_{:03d}_{:.5f}.h5"
-        self._disc_name = "Disc_{:03d}_{:.5f}.h5"
 
     def train(
             self,
@@ -101,32 +105,40 @@ class KerasGANTrainner:
 
         for epoch in range(max_epoch):
             print("epoch {} starts".format(epoch))
-            total_gen_loss = 0
-            total_disc_loss = 0
+            epoch_disc_loss = keras.metrics.Mean()
+            epoch_gen_loss = keras.metrics.Mean()
+            epoch_construct_loss = keras.metrics.Mean()
+            epoch_adv_loss = keras.metrics.Mean()
+
             for batch in range(steps_per_epoch):
                 gt_imgs, noises = next(dataset)
-                gen_loss, disc_loss = self._train_step(gt_imgs, noises)
+                disc_loss, gen_loss, adv_loss, construct_loss = \
+                    self._train_step(gt_imgs, noises)
 
-                total_gen_loss += gen_loss
-                total_disc_loss += disc_loss
+                epoch_gen_loss(gen_loss)
+                epoch_disc_loss(disc_loss)
+                epoch_adv_loss(adv_loss)
+                epoch_construct_loss(construct_loss)
 
-                msg = "    batch {:03d} - Gen loss: {:.5f}; Disc loss: {:.5f} (per img)"
-                print(msg.format(batch, gen_loss, disc_loss), end="\r")
+                msg = "    batch {:03d} - Gen loss: {:.5f} (adv: :{:.5f}, construct: {:.5f}); Disc loss: {:.5f}"
+                print(msg.format(batch, gen_loss, adv_loss, construct_loss, disc_loss), end="\r")
 
-            avg_gen_loss = total_gen_loss / steps_per_epoch
-            avg_disc_loss = total_disc_loss / steps_per_epoch
+            msg = "epoch {} ends, Gen loss: {} (adv: {}, construct: {}), Disc loss: {}"
+            print(msg.format(
+                epoch, epoch_gen_loss.result(),
+                epoch_adv_loss.result(), epoch_construct_loss.result(),
+                epoch_disc_loss.result()
+            ))
 
-            msg = "epoch {} ends, Gen loss: {}, Disc loss: {} (per batch)"
-            print(msg.format(epoch, avg_gen_loss, avg_disc_loss))
+            file_disc = os.path.join(
+                self.tmp_dir, self._disc_name.format(epoch, epoch_disc_loss.result())
+            )
+            self._disc.save_weights(file_disc)
 
             file_gen = os.path.join(
-                self.tmp_dir, self._gen_name.format(epoch, avg_gen_loss)
-            )
-            file_disc = os.path.join(
-                self.tmp_dir, self._disc_name.format(epoch, avg_disc_loss)
+                self.tmp_dir, self._gen_name.format(epoch, epoch_gen_loss.result(), epoch_construct_loss.result())
             )
             self._gen.save_weights(file_gen)
-            self._disc.save_weights(file_disc)
 
     @tf.function
     def _train_step(self, gt_imgs: tf.Tensor, noises: tf.Tensor):
@@ -160,14 +172,19 @@ class KerasGANTrainner:
         with tf.GradientTape() as gen_tape:
             fake_imgs = self._gen(noises, training=True)
             fake_pred = self._disc(fake_imgs, training=True)
+
             gen_lb = tf.ones_like(fake_pred)
-            gen_loss = self._gen_loss(gen_lb, fake_pred)
+            adv_loss = self._gen_loss(gen_lb, fake_pred)
+            construct_loss = self._constrcut_loss(fake_imgs, gt_imgs)
+            gen_loss = adv_loss + construct_loss
 
         gen_grad = gen_tape.gradient(
-            gen_loss,
-            self._gen.trainable_variables
+            gen_loss, self._gen.trainable_variables
         )
         self._gen_optimzier.apply_gradients(
             zip(gen_grad, self._gen.trainable_variables)
         )
-        return disc_loss / (2*batch), gen_loss / batch
+        return (
+            disc_loss / (2*batch),
+            gen_loss / batch, adv_loss / batch, construct_loss / batch
+        )
