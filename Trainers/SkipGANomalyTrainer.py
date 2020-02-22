@@ -49,6 +49,7 @@ class SkipGANomalyTrainer:
             latent_loss: keras.losses.Loss,
             construct_loss: keras.losses.Loss,
             out_dir: str,
+            construct_weight: float = 1.0,
             disc_update_per_batch: int = 1
             ):
         """Create a trainner for GAN architecture
@@ -63,6 +64,9 @@ class SkipGANomalyTrainer:
                 both generator/discriminator
             construct_loss (keras.losses.Loss):
                 reconstruction loss for generator
+            construct_weight (float):
+                the weight w for reconstruction loss
+                the final loss will be adv_loss + w * constuct_loss + latent_loss
             latent_loss (keras.losses.Loss):
                 latent loss for generator
             disc_update_per_batch (int):
@@ -73,6 +77,9 @@ class SkipGANomalyTrainer:
         self._gen = generator
         self._gen_optimzier = gen_optimizer
         self._construct_loss = construct_loss
+        self._construct_weight = tf.convert_to_tensor(
+            construct_weight, dtype=tf.float32
+        )
         self._latent_loss = latent_loss
         self._gen_name = "Gen_{:03d}_{:.5f}.h5"
 
@@ -230,6 +237,7 @@ class SkipGANomalyTrainer:
             true_latent, _ = self._disc(gt_imgs, training=True)
 
             construct_loss = self._construct_loss(gt_imgs, fake_imgs)
+            construct_loss = self._construct_weight * construct_loss
             latent_loss = self._latent_loss(true_latent, fake_latent)
 
             gen_lb = tf.ones_like(fake_pred)
@@ -256,5 +264,6 @@ class SkipGANomalyTrainer:
         true_latent, _ = self._disc(gt_imgs, training=False)
 
         construct_loss = self._construct_loss(gt_imgs, fake_imgs)
+        construct_loss = self._construct_weight * construct_loss
         latent_loss = self._latent_loss(true_latent, fake_latent)
         return construct_loss, latent_loss
