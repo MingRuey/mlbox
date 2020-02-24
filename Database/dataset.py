@@ -258,13 +258,20 @@ class DataBase:
         """
         self._parser = self.formats.get_parser(*args, **kwargs)
 
-    def get_dataset(self, epoch: int, batchsize: int):
+    def get_dataset(
+            self, epoch: int, batchsize: int,
+            shuffle_n_batch: int = 5000,
+            reshuffle_per_iteration: bool = False
+            ):
         """Get the tf.dataset class used by get_input_tensor"""
         dataset = tf.data.TFRecordDataset(self.files)
         dataset = dataset.map(
             self.parser,
             num_parallel_calls=OUTPUT_PARALLEL_CALL)
-        dataset = dataset.shuffle(5000 * batchsize, seed=42, reshuffle_each_iteration=False)
+        dataset = dataset.shuffle(
+            shuffle_n_batch * batchsize, seed=42,
+            reshuffle_each_iteration=reshuffle_per_iteration
+        )
         dataset = dataset.repeat(epoch)
         dataset = dataset.batch(batchsize, drop_remainder=True)
         dataset = dataset.prefetch(OUTPUT_BUFFER_TO_BATCH_RATIO)
