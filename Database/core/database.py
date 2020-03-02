@@ -7,6 +7,7 @@ from functools import partial
 from typing import List
 import numpy as np
 import tensorflow as tf
+import tensorflow_datasets as tfds
 
 from MLBOX.Database.formats import DataFormat, TSFORMAT, IMGFORMAT
 
@@ -100,7 +101,7 @@ class TFRfile(tf.io.TFRecordWriter):
         raise NotImplementedError()
 
 
-class DataBase:
+class DBLoader:
     """Dataset object holds a pack of tfrecord file"""
 
     yaml.SafeLoader.add_constructor(u"!DataFormat", DataFormat.from_yaml)
