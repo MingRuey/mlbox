@@ -2,35 +2,36 @@ import json
 import pathlib
 import pytest
 
-from MLBOX.Database import builtin
+from MLBOX.Database.builtin import BUILT_INS
 from MLBOX.Database import DBLoader
 
-BUILT_IN_PATH = pathlib.Path(list(builtin.__path__)[0])
-assert BUILT_IN_PATH.is_dir()
 
-
+@pytest.mark.parametrize(
+    "config", BUILT_INS, ids=[cfg.name for cfg in BUILT_INS]
+)
 class TestJsonInfo:
     """check the json file information matches the actual tfrecords"""
 
-    @pytest.mark.parametrize(
-        "config", [str(file) for file in BUILT_IN_PATH.glob("*.json")]
-    )
     def test_existence(self, config):
-        """the dataset with given name & version should exist at locatin"""
-        with open(config, "r") as f:
-            content = json.load(f)
+        """the dataset with given name & version should exist at location"""
+        name = config.name
+        loc = pathlib.Path(config.location)
+        for ver in config.versions:
+            assert loc.is_dir()
+            assert loc.joinpath(name).is_dir()
+            assert loc.joinpath(name).joinpath(ver).is_dir()
 
-        name = content["name"]
-        version = content["version"]
-        loc = pathlib.Path(content["location"])
+    def test_loadable(self, config):
+        """Can load all built-in datasets"""
+        db = DBLoader()
+        assert db.info == ""
+        assert db.train is None
+        assert db.test is None
 
-        assert loc.is_dir()
-        assert loc.joinpath(name).is_dir()
-        assert loc.joinpath(name).joinpath(version).is_dir()
-
-    def test_loadable(self):
-        db = DBLoader.load("mnist")
-        db = DBLoader.load("mnist", version="3.0.0")
+        db.load_built_in(config.name)
+        assert db.train.count == config.train["count"]
+        assert db.test.count == config.test["count"]
+        assert db.info != ""
 
 
 if __name__ == "__main__":
