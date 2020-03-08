@@ -21,7 +21,10 @@ class Dataset:
 
     def __init__(self, tfrecords: List[str], parser: ParserFMT):
         """Create a dataset with tfrecord files and parser"""
-        self._files = list(tfrecords)
+        tfrecords = list(tfrecords)
+        if not tfrecords:
+            raise ValueError("Got empty tfrecords")
+        self._files = tfrecords
         self._parser = parser
         self._data_mask = None
 
@@ -70,7 +73,7 @@ class Dataset:
         """
         dataset = tf.data.TFRecordDataset(self._files)
         dataset = dataset.map(
-            self._parser,
+            self._parser.parse_example,
             num_parallel_calls=OUTPUT_PARALLEL_CALL
         )
         dataset = dataset.shuffle(
@@ -149,7 +152,7 @@ class DBLoader:
         """
         target = None
         for built_in in BUILT_INS:
-            if built_in.name == name:
+            if built_in.name == name.lower():
                 target = built_in
                 break
 
@@ -164,10 +167,11 @@ class DBLoader:
             raise ValueError(msg.format(version, target.name, target.versions))
 
         if parser == "default":
-            parser = target.parser
+            parser_cls = target.parser
+            parser = parser_cls()
 
-        loc = str(Path(target.location).joinpath(name).joinpath(version))
-        self.load(directory=loc, parser=parser)
+        loc = Path(target.location).joinpath(target.name).joinpath(version)
+        self.load(directory=str(loc), parser=parser)
 
         self._info = "Database {}(ver {})\ninfo: {}".format(
             name, version, target.info
