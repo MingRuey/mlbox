@@ -44,13 +44,45 @@ class TestDataset:
         """Test the slicing behavior of the returned dataset"""
         pass
 
-    def test_split(self):
-        """Test splitting behavior of the Dataset"""
-        pass
+    def test_split_with_invalid_ratio(self):
+        """split with invalid ratio should raise ValueError"""
+        ds = Dataset(tfrecords=TRAIN_TFRS, parser=SampleParser())
 
-    def test_parser(self):
-        """Test the given parser is acutally work on the returned dataset"""
-        pass
+        with pytest.raises(ValueError):
+            ds1, ds2 = ds.split(ratio=0.0)
+
+        with pytest.raises(ValueError):
+            ds1, ds2 = ds.split(ratio=1.0)
+
+    def test_splitted_can_not_be_split(self):
+        """Dataset already been splitted should not be splitted anymore"""
+        ds = Dataset(tfrecords=TRAIN_TFRS, parser=SampleParser())
+        ds1, ds2 = ds.split(ratio=0.2)
+
+        with pytest.raises(RuntimeError):
+            _, __ = ds1.split(ratio=0.5)
+
+        with pytest.raises(RuntimeError):
+            _, __ = ds2.split(ratio=0.5)
+
+    def test_split_data_count(self):
+        """split Dataset should yields correct data count"""
+        ds = Dataset(tfrecords=TRAIN_TFRS, parser=SampleParser())
+        assert ds.count == 50
+
+        ds1, ds2 = ds.split(ratio=0.2)
+        assert ds1.count == 10
+        assert ds2.count == 40
+
+        cnt = 0
+        for example in ds1.to_tfdataset(1, 1, shuffle_n_batch=1):
+            cnt += 1
+        assert cnt == 10
+
+        cnt = 0
+        for example in ds2.to_tfdataset(2, 3, shuffle_n_batch=1):
+            cnt += 1
+        assert cnt == 60
 
 
 class TestDBuilder:
@@ -65,15 +97,15 @@ class TestDBuilder:
             thread.start()
 
             inputs = [mock.MagicMock() for _ in range(4)]
-            fail = "fail due to string lacks SerializeToString method"
+            fail = "string lacks SerializeToString method"
             for sample in inputs:
-                thread.input_queue.put(sample)
-            thread.input_queue.put(fail)
+                thread.input_queue.put({"x": sample})
+            thread.input_queue.put({"x": fail})
             thread.input_queue.put(None)
             time.sleep(0.1)
 
             parse_fn.assert_has_calls(
-                [mock.call(sample) for sample in inputs] + [mock.call(fail)]
+                [mock.call(x=sample) for sample in inputs] + [mock.call(x=fail)]
             )
 
             mock_writer.assert_called_with(file)

@@ -6,8 +6,9 @@ from concurrent import futures
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import List
+from typing import List, Tuple
 
+import numpy as np
 import tensorflow as tf
 
 from MLBOX.Database.builtin import BUILT_INS
@@ -34,30 +35,74 @@ class Dataset:
             raise ValueError("Got empty tfrecords")
         self._files = tfrecords
         self._parser = parser
-        self._data_mask = None
+        self._count = None
+        self._shard = None
 
-    @property
-    def info(self):
-        pass
+    @classmethod
+    def _copy(cls, dataset):
+        """Create dataset from dataset"""
+        instance = cls(tfrecords=dataset._files, parser=dataset._parser)
+        instance._shard = dataset._shard
+        instance._count = dataset._count
+        return instance
 
     @property
     def count(self) -> int:
         """Number of data inside Dataset"""
-        cnt = 0
-        for example in tf.data.TFRecordDataset(self._files):
-            cnt += 1
-        return cnt
+        if self._count is None:
+            cnt = 0
+            for example in tf.data.TFRecordDataset(self._files):
+                cnt += 1
+            self._count = cnt
+        return self._count
 
     # Both slice and split features are implemented via
     # an internal boolean mask over the dataset.
     # The same mechanism is used by tfds too.
     def __getitem__(self, val):
         """Make dataset support slice behaviour"""
-        pass
+        if self._shard is not None:
+            msg = "A sliced/splitted dataset can not be sliced anymore"
+            raise TypeError(msg)
+        else:
+            raise NotImplementedError()
 
     def split(self, ratio: float):
-        """Split dataset randomly into two pile"""
-        pass
+        """Split dataset randomly into two pile
+
+        Args:
+            ratio (float): divide ratio
+
+        Return:
+            a tuple of (Dataset1, Dataset1),
+            where Dataset1 contains ratio * originial Dataset,
+            while Dataset2 contains the remainings (i.e. 1 - ratio)
+        """
+        if self._shard is not None:
+            msg = "A sliced/splitted dataset can not be splitted anymore"
+            raise RuntimeError(msg)
+
+        select_cnt = int(self.count * ratio)
+        if select_cnt <= 0 or select_cnt >= self.count:
+            msg = "Ratio {} for {} data (per epoch) causes invalid data count"
+            raise ValueError(msg.format(ratio, self.count))
+
+        indices = np.random.choice(self.count, select_cnt, replace=False)
+        mask = np.zeros(self.count, dtype=bool)
+        mask[indices] = True
+
+        select_mask = tf.convert_to_tensor(mask)
+        supplement_mask = tf.logical_not(select_mask)
+        select_mask = tf.data.Dataset.from_tensor_slices(select_mask)
+        supplement_mask = tf.data.Dataset.from_tensor_slices(supplement_mask)
+
+        ds_select = Dataset._copy(self)
+        ds_select._count = select_cnt
+        ds_select._shard = select_mask
+        ds_supplement = Dataset._copy(self)
+        ds_supplement._count = self.count - select_cnt
+        ds_supplement._shard = supplement_mask
+        return ds_select, ds_supplement
 
     def to_tfdataset(
             self,
@@ -65,7 +110,7 @@ class Dataset:
             shuffle_n_batch: int = 100,
             reshuffle_per_epoch: bool = False,
             shuffle_seed: int = 42
-            ):
+            ) -> tf.data.Dataset:
         """Transform Dataset instance into tf.data.Dataset object
 
         Args:
@@ -80,6 +125,13 @@ class Dataset:
                 the random seed for shuffle, default to 42.
         """
         dataset = tf.data.TFRecordDataset(self._files)
+
+        # apply mask if dataset had been sliced/splitted
+        if self._shard is not None:
+            dataset = tf.data.Dataset.zip((dataset, self._shard))
+            dataset = dataset.filter(lambda data, mask: mask)
+            dataset = dataset.map(lambda data, mask: data)
+
         dataset = dataset.map(
             self._parser.parse_example,
             num_parallel_calls=OUTPUT_PARALLEL_CALL
@@ -92,14 +144,6 @@ class Dataset:
         dataset = dataset.batch(batch, drop_remainder=True)
         dataset = dataset.prefetch(OUTPUT_BUFFER_TO_BATCH_RATIO)
         return dataset
-
-
-class _SlicedDataset(Dataset):
-    """Created by slicing Dataset instance, which can not be further sliced"""
-
-    def __getitem__(self, val):
-        msg = "A sliced dataset object can not be sliced anymore"
-        raise TypeError(msg)
 
 
 class DBLoader:
