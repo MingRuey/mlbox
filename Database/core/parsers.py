@@ -1,3 +1,4 @@
+from abc import abstractmethod, ABC
 from typing import Dict, List
 
 import tensorflow as tf
@@ -6,9 +7,10 @@ from MLBOX.Database.core.features import Feature
 from MLBOX.Database.core.features import ImageFeature
 
 
-class ParserFMT:
+class ParserFMT(ABC):
 
     @property
+    @abstractmethod
     def features(self) -> List[Feature]:
         """List of Feature that the format contains"""
         raise NotImplementedError()
