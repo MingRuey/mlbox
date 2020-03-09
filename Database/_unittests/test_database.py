@@ -23,10 +23,12 @@ class SampleParser:
 
 class TestDataset:
 
+    def setup_method(self):
+        self.ds = Dataset(tfrecords=TRAIN_TFRS, parser=SampleParser())
+
     def test_to_tfdataset(self):
         """The returned tf.data.dataset should match content of tfrecord"""
-        ds = Dataset(tfrecords=TRAIN_TFRS, parser=SampleParser())
-        ds = ds.to_tfdataset(1, 1)
+        ds = self.ds.to_tfdataset(1, 1)
 
         examples = [int(ex["id"].numpy()) for ex in ds]
         assert examples != [i for i in range(50)]  # items has benn shuffled
@@ -34,30 +36,53 @@ class TestDataset:
 
     def test_to_tfdataset_order(self):
         """Shuffle_n_batch = 1 should not shuffle anything"""
-        ds = Dataset(tfrecords=TRAIN_TFRS, parser=SampleParser())
-        ds = ds.to_tfdataset(1, 1, shuffle_n_batch=1)
+        ds = self.ds.to_tfdataset(1, 1, shuffle_n_batch=1)
 
         examples = [int(ex["id"].numpy()) for ex in ds]
         assert examples == [i for i in range(50)]
 
+    def test_slicing_with_invalid_arg(self):
+        """with invalid Slice range should get ValueError"""
+        with pytest.raises(ValueError):
+            self.ds[:100:1]
+
+        with pytest.raises(ValueError):
+            self.ds[100:100]
+
+        with pytest.raises(ValueError):
+            self.ds[101:]
+
+        with pytest.raises(TypeError):
+            self.ds[5]
+
+    def test_sliced_can_not_be_slicing(self):
+        """Dataset already been sliced should not be sliced anymore"""
+        sliced = self.ds[:10]
+        with pytest.raises(RuntimeError):
+            sliced[:10]
+
     def test_slicing(self):
         """Test the slicing behavior of the returned dataset"""
-        pass
+        assert self.ds.count == 50
+
+        sliced = self.ds[20:50]
+        assert sliced.count == 15
+
+        ds = sliced.to_tfdataset(1, 1, shuffle_n_batch=1)
+        content = [int(ex["id"].numpy()) for ex in ds]
+        assert content == [i for i in range(10, 25)]
 
     def test_split_with_invalid_ratio(self):
         """split with invalid ratio should raise ValueError"""
-        ds = Dataset(tfrecords=TRAIN_TFRS, parser=SampleParser())
+        with pytest.raises(ValueError):
+            ds1, ds2 = self.ds.split(ratio=0.0)
 
         with pytest.raises(ValueError):
-            ds1, ds2 = ds.split(ratio=0.0)
-
-        with pytest.raises(ValueError):
-            ds1, ds2 = ds.split(ratio=1.0)
+            ds1, ds2 = self.ds.split(ratio=1.0)
 
     def test_splitted_can_not_be_split(self):
         """Dataset already been splitted should not be splitted anymore"""
-        ds = Dataset(tfrecords=TRAIN_TFRS, parser=SampleParser())
-        ds1, ds2 = ds.split(ratio=0.2)
+        ds1, ds2 = self.ds.split(ratio=0.2)
 
         with pytest.raises(RuntimeError):
             _, __ = ds1.split(ratio=0.5)
@@ -67,10 +92,9 @@ class TestDataset:
 
     def test_split_data_count(self):
         """split Dataset should yields correct data count"""
-        ds = Dataset(tfrecords=TRAIN_TFRS, parser=SampleParser())
-        assert ds.count == 50
+        assert self.ds.count == 50
 
-        ds1, ds2 = ds.split(ratio=0.2)
+        ds1, ds2 = self.ds.split(ratio=0.2)
         assert ds1.count == 10
         assert ds2.count == 40
 
@@ -120,4 +144,4 @@ class TestDBuilder:
 
 
 if __name__ == "__main__":
-    pytest.main(["-s", "-v", __file__])
+    pytest.main(["-s", "-v", "-k TestDataset", __file__])

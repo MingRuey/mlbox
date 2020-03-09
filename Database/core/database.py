@@ -63,9 +63,39 @@ class Dataset:
         """Make dataset support slice behaviour"""
         if self._shard is not None:
             msg = "A sliced/splitted dataset can not be sliced anymore"
-            raise TypeError(msg)
+            raise RuntimeError(msg)
+        elif isinstance(val, slice):
+            if val.step is not None:
+                msg = "Slicing dataset is continuous, no step can be set, got {}"
+                raise ValueError(msg.format(val))
+
+            # convert slice range form [0, 100] to [0, data count]
+            start = None if val.start is None \
+                else int(self.count * val.start / 100)
+            stop = None if val.stop is None \
+                else int(self.count * val.stop / 100)
+
+            mask = np.zeros(self.count, dtype=bool)
+            mask[start:stop] = True
+
+            if not mask.sum():
+                msg = "Empty Dataset is sliced via: {}"
+                raise ValueError(msg.format(val))
+
+            shard = tf.convert_to_tensor(mask)
+            shard = tf.data.Dataset.from_tensor_slices(mask)
+
+            ds_select = Dataset._copy(self)
+            ds_select._count = mask.sum()
+            ds_select._shard = shard
+            return ds_select
+
+        elif isinstance(val, tuple) and all(isinstance(v, slice) for v in val):
+            msg = "Dataset does not support multi-slicing, got {}"
+            raise TypeError(msg.format(val))
         else:
-            raise NotImplementedError()
+            msg = "Dataset only supports Slice object slicing, got {}"
+            raise TypeError(msg.format(val))
 
     def split(self, ratio: float):
         """Split dataset randomly into two pile
