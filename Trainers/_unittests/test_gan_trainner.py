@@ -7,9 +7,6 @@ from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.optimizers import SGD, Adam
 
-from MLBOX.Database.formats import DataFormat, IMGFORMAT
-from MLBOX.Database.dataset import DataBase
-from MLBOX.Scenes.SimpleSplit import SimpleSplit
 from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
 from MLBOX.Trainers.GANtrainner import KerasGANTrainner
 

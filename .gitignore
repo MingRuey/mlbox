@@ -109,5 +109,9 @@ venv.bak/
 *.model
 
 # config & log
+*.json
 *.yml
 *.log
+
+# legacy code
+_legacy

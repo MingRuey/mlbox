@@ -19,8 +19,7 @@ from tensorflow.keras.optimizers import SGD, Adam  # noqa: E402
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 
-from MLBOX.Database.dataset import DataBase  # noqa: E402
-from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
+from MLBOX.Database.core.database import Dataset  # noqa: E402
 from MLBOX.Trainers.TF.Callbacks import ModelLogger, TrainRecord  # noqa: E402
 from MLBOX.Trainers.TF.Metrics import SSIM  # noqa: E402
 from MLBOX.Trainers.TF.Loss import SSIMLoss  # noqa: E402
@@ -78,7 +77,7 @@ class KerasGANTrainner:
 
     def train(
             self,
-            database: DataBase,
+            database: Dataset,
             batch_size: int = 8,
             max_epoch: int = 200,
             load_best: bool = True,
@@ -99,7 +98,7 @@ class KerasGANTrainner:
                 self._disc.load_weights(str(disc_weights))
                 print("Discriminator load pretrain weights from {}".format(filename))
 
-        dataset = database.get_dataset(epoch=max_epoch, batchsize=batch_size)
+        dataset = database.to_tfdataset(epoch=max_epoch, batch=batch_size)
         dataset = iter(dataset)
         steps_per_epoch = database.data_count // batch_size
 

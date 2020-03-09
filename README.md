@@ -1,14 +1,27 @@
 Ray's Machine Learning Tools (remake from KaggleWidget.TF_Utils)
-
 ---
 
-Frameworks: Tensorflow 2.0
+A light-weighted and easy-to-use tools for general deep learning based on tensorflow 2.0
 
-Components:
-    --  Database
-    --  Model
-    --  Trainers
-    --  Scenes
+* Components:
+    *  Database
+    *  Model
+    *  Trainers
+    *  Scenes
+---
+
+**Database**
+
+    It is a re-implementation of [tensorflow_dataset](https://www.tensorflow.org/datasets),
+    while simplify its APIs and remove some functionalities for easy use.
+
+**Model**
+
+    (On-Going) Supports both classfical and SOTA deep learning models
+
+**Trainers**
+
+    Provide out-of-box trainer for Model on Database.
 
 ---
 
