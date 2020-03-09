@@ -19,7 +19,7 @@ from tensorflow.keras.optimizers import SGD, Adam  # noqa: E402
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 
-from MLBOX.Database.dataset import DataBase  # noqa: E402
+from MLBOX.Database.core.database import Dataset  # noqa: E402
 from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
 from MLBOX.Trainers.TF.Callbacks import ModelLogger, TrainRecord  # noqa: E402
 
@@ -60,8 +60,8 @@ class KerasBaseTrainner:
 
     def train(
             self,
-            train_db: DataBase,  # should already config parser
-            vali_db: DataBase,  # should already config parser
+            train_db: Dataset,
+            vali_db: Dataset,
             lr_decay_factor: float = 0.5,
             batch_size: int = 8,
             min_epoch: int = 40,
@@ -72,8 +72,8 @@ class KerasBaseTrainner:
         """
 
         Args:
-            train_db (DataBase): database of training set
-            vali_db (DataBase): database of validation set
+            train_db (Dataset): database of training set
+            vali_db (Dataset): database of validation set
             batch_size (int, optional): Defaults to 8.
             min_epoch (int, optional):
                 The minimum epoch for training. Defaults to 40.
@@ -98,7 +98,7 @@ class KerasBaseTrainner:
                 print("Re-train from epoch: {}".format(init_epoch))
 
         self._model.fit(
-            x=train_db.get_dataset(epoch=max_epoch, batchsize=batch_size),
+            x=train_db.to_tfdataset(epoch=max_epoch, batch=batch_size),
             epochs=max_epoch,
             steps_per_epoch=train_db.data_count // batch_size,
             validation_data=vali_db.get_dataset(epoch=max_epoch, batchsize=batch_size),
