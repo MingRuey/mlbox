@@ -1,11 +1,61 @@
+import os
 from pathlib import Path
 
-import pytest
-import cv2
-import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
 
-from MLBOX.Database.core.features import ImageFeature
-from MLBOX.Database._unittests.configs import SAMPLE_FILES_DIR
+import pytest  # noqa: E402
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
+import tensorflow as tf  # noqa: E40
+
+from MLBOX.Database.core.features import IntLabel, StrLabel, FloatLabel  # noqa: E402
+from MLBOX.Database.core.features import ImageFeature  # noqa: E402
+from MLBOX.Database._unittests.configs import SAMPLE_FILES_DIR  # noqa: E402
+
+
+class TestLabelFeature:
+
+    @staticmethod
+    def _encode_and_parse(feat, inputs):
+        encoded = feat._create_from(**inputs)
+        example = tf.train.Example(
+            features=tf.train.Features(feature=encoded)
+        )
+        parsed = tf.io.parse_single_example(
+            example.SerializeToString(), features=feat.encoded_features
+        )
+        parsed = feat._parse_from(**parsed)
+        return encoded, parsed
+
+    def test_simple_int_label(self):
+        feat = IntLabel(n_class=5)
+        inputs = {"label": [2, 4]}
+
+        encoded, parsed = TestLabelFeature._encode_and_parse(feat, inputs)
+        parsed = parsed["classes"].numpy()
+
+        assert encoded.keys() == feat.encoded_features.keys()
+        assert np.allclose(parsed, np.array([0., 0., 1., 0., 1.]))
+
+    def test_simple_str_label(self):
+        feat = StrLabel()
+        inputs = {"label": ["meow", "woof"]}
+
+        encoded, parsed = TestLabelFeature._encode_and_parse(feat, inputs)
+        parsed = parsed["classes"].numpy()
+
+        assert encoded.keys() == feat.encoded_features.keys()
+        assert np.all(parsed == np.array([b"meow", b"woof"]))
+
+    def test_simpel_float_label(self):
+        feat = FloatLabel()
+        inputs = {"label": [3.14, 2.718]}
+
+        encoded, parsed = TestLabelFeature._encode_and_parse(feat, inputs)
+        parsed = parsed["classes"].numpy()
+
+        assert encoded.keys() == feat.encoded_features.keys()
+        assert np.allclose(parsed, np.array([3.14, 2.718]))
 
 
 class TestImageFeature:
