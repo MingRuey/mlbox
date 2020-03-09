@@ -1,6 +1,7 @@
 import os
 import re
 import logging
+import time
 from concurrent import futures
 from pathlib import Path
 from queue import Queue
@@ -15,54 +16,13 @@ from MLBOX.Database.core.parsers import ParserFMT
 OUTPUT_PARALLEL_CALL = 8
 OUTPUT_BUFFER_TO_BATCH_RATIO = 16
 TRAIN_TFRECORD_PATTERN = r".+-train.tfrecord-\d{5}-of-\d{5}"
-TRAIN_TFRECORD_FMT = "{}-train.tfrecords-{:05d}-of-{:05d}"
+TRAIN_TFRECORD_FMT = "{}-train.tfrecord-{:05d}-of-{:05d}"
 TEST_TFRECORD_PATTERN = r".+-test.tfrecord-\d{5}-of-\d{5}"
-TEST_TFRECORD_FMT = "{}-test.tfrecords-{:05d}-of-{:05d}"
+TEST_TFRECORD_FMT = "{}-test.tfrecord-{:05d}-of-{:05d}"
 
 
 def _fullpath_listdir(d):
     return [os.path.join(d, f) for f in sorted(os.listdir(d))]
-
-
-class _TFRWriter(Thread):
-
-    def __init__(self, file, parse_fn):
-        self._queue = Queue()
-        self._file = str(file)
-        self._parse_fn = parse_fn
-        self._success_cnt = 0
-        self._err_cnt = 0
-
-    @property
-    def input_queue(self):
-        return self._queue
-
-    @property
-    def success(self) -> int:
-        return self._success_cnt
-
-    @property
-    def error(self) -> int:
-        return self._err_cnt
-
-    def run(self):
-        with tf.io.TFRecordWriter(self._file) as writer:
-            while True:
-                target = self._queue.get(block=True)
-                if target is None:
-                    if self.success == 0 and self.error == 0:
-                        msg = "File {} receive empty item."
-                        logging.warning(msg.format(self._file))
-                    break
-                try:
-                    example = self._parse_fn(target)
-                    writer.write(example.SerializeToString())
-                except Exception as e:
-                    msg = "Error while writing {}: {}."
-                    logging.exception(msg.format(target, str(e)))
-                    self._err_cnt += 1
-                else:
-                    self._success_cnt += 1
 
 
 class Dataset:
@@ -226,6 +186,49 @@ class DBLoader:
         )
 
 
+class _TFRWriter(Thread):
+
+    def __init__(self, file: str, parse_fn):
+        super().__init__()
+        self._queue = Queue()
+        self._file = str(file)
+        self._parse_fn = parse_fn
+        self._success_cnt = 0
+        self._err_cnt = 0
+        self.daemon = True
+
+    @property
+    def input_queue(self):
+        return self._queue
+
+    @property
+    def success(self) -> int:
+        return self._success_cnt
+
+    @property
+    def error(self) -> int:
+        return self._err_cnt
+
+    def run(self):
+        with tf.io.TFRecordWriter(self._file) as writer:
+            while True:
+                target = self._queue.get(block=True)
+                if target is None:
+                    if self.success == 0 and self.error == 0:
+                        msg = "File {} receive empty item."
+                        logging.warning(msg.format(self._file))
+                    break
+                try:
+                    example = self._parse_fn(**target)
+                    writer.write(example.SerializeToString())
+                except Exception as e:
+                    msg = "Error while writing {}: {}."
+                    logging.exception(msg.format(target, str(e)))
+                    self._err_cnt += 1
+                else:
+                    self._success_cnt += 1
+
+
 class DBuilder:
 
     def __init__(self, name: str, parser: ParserFMT):
@@ -272,18 +275,26 @@ class DBuilder:
             msg = "num_of_tfrecords too large, got {}. Suggest set it to < 255"
             raise ValueError(msg.format(num_of_tfrecords))
 
+        start_time = time.time()
         success_sum = 0
         err_sum = 0
         threads = []
         for index in range(num_of_tfrecords):
             file = file_fmt.format(self._name, index, num_of_tfrecords)
-            thread = _TFRWriter(file)
+            file = str(out_dir.joinpath(file))
+            thread = _TFRWriter(file, parse_fn=self._parser.to_example)
             thread.start()
             threads.append(thread)
 
         for item in generator:
-            index = hash(item) % num_of_tfrecords
-            threads[index].input_queue.put(item)
+            try:
+                index = hash(frozenset(item.values())) % num_of_tfrecords
+            except Exception:
+                msg = "Error while hashing item {} in generator."
+                logging.exception(msg.format(item))
+                err_sum += 1
+            else:
+                threads[index].input_queue.put(item)
 
         for thread in threads:
             thread.input_queue.put(None)

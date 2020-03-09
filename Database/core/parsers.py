@@ -10,20 +10,28 @@ from MLBOX.Database.core.features import ImageFeature
 class ParserFMT(ABC):
 
     @property
+    def info(self) -> str:
+        feat_info = "{} - create keys: {}; encoded_features: {}"
+        outputs = "\n".join(
+            feat_info.format(
+                feat.name, feat.create_keys, feat.encoded_features.keys()
+            ) for feat in self.features
+        )
+        return outputs
+
+    @property
     @abstractmethod
     def features(self) -> List[Feature]:
         """List of Feature that the format contains"""
         raise NotImplementedError()
 
-    def parse_example(self, example) -> Dict[str, tf.Tensor]:
+    def parse_example(self, example: tf.Tensor) -> Dict[str, tf.Tensor]:
         """Convert tf.train.Example to dict of tf.tensor"""
         encoded = {}
         for feat in self.features:
             encoded.update(feat.encoded_features)
 
-        example = tf.io.parse_single_example(
-            example.SerializeToString(), features=encoded
-        )
+        example = tf.io.parse_single_example(example, features=encoded)
 
         outputs = {}
         for feat in self.features:

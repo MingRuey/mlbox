@@ -67,7 +67,7 @@ class TestParserBase:
             features=tf.train.Features(feature=features)
         )
 
-        parsed = self.parser.parse_example(example)
+        parsed = self.parser.parse_example(example.SerializeToString())
         parsed = {k: v.numpy() for k, v in parsed.items()}
         assert parsed["fbytes"] == b"myleneflare"
         assert parsed["fint"] == 2045
