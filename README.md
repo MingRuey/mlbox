@@ -15,6 +15,30 @@ A light-weighted and easy-to-use tools for general deep learning based on tensor
     It is a re-implementation of [tensorflow_dataset](https://www.tensorflow.org/datasets),
     while simplify its APIs and remove some functionalities for easy use.
 
+    Example usage:
+    '''python
+
+    import tensorflow as tf
+    from MLBOX.Database import DBLoader
+
+    loader = DBLoader()
+    loder.load_built_in("mnist")
+    train, test = loader.train, loader.test
+
+    # now train && test are Database.core.database.Dataset object
+    # which can be sliced/splitted
+
+    assert train.count == 60000
+
+    train, validation = train.split(ratio=0.8)
+    assert train.count == 48000
+    assert validation.count == 12000
+
+    # tensorflow.data.Dataset can be get via .to_tfdataset
+    ds = train.to_tfdataset(epoch=1, batch=1)
+    assert isinstance(ds, tf.data.Dataset)
+    '''
+
 **Model**
 
     (On-Going) Supports both classfical and SOTA deep learning models
