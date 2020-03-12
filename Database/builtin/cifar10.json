@@ -1,0 +1,17 @@
+{
+    "name": "cifar10",
+    "location": "/rawdata2/TFDataset",
+    "versions": ["3.0.0"],
+    "info": {
+        "type": "image classification",
+        "image": {
+            "height": 32,
+            "width": 32,
+            "channel": 3
+        },
+        "label def": "label.labels.txt"
+    },
+    "parser": "CIFAR10",
+    "train": {"count": 50000},
+    "test": {"count": 10000}
+}

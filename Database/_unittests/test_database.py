@@ -108,6 +108,20 @@ class TestDataset:
             cnt += 1
         assert cnt == 60
 
+    def test_get_sample(self):
+        """test fast retriving a single sample from dataset"""
+        # get sample without shard
+        start_time = time.time()
+        sample = self.ds.get_sample()
+        assert time.time() - start_time < 0.1
+        assert sample["id"].numpy() == 0
+
+        # get sample with shard
+        start_time = time.time()
+        sample = self.ds[90:].get_sample()
+        assert time.time() - start_time < 0.1
+        assert sample["id"].numpy() == 45
+
 
 class TestDBuilder:
 
@@ -144,4 +158,4 @@ class TestDBuilder:
 
 
 if __name__ == "__main__":
-    pytest.main(["-s", "-v", "-k TestDataset", __file__])
+    pytest.main(["-s", "-v", __file__])

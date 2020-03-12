@@ -134,6 +134,24 @@ class Dataset:
         ds_supplement._shard = supplement_mask
         return ds_select, ds_supplement
 
+    def _create_dataset(self):
+        dataset = tf.data.TFRecordDataset(self._files)
+
+        # apply mask if dataset had been sliced/splitted
+        if self._shard is not None:
+            dataset = tf.data.Dataset.zip((dataset, self._shard))
+            dataset = dataset.filter(lambda data, mask: mask)
+            dataset = dataset.map(lambda data, mask: data)
+
+        return dataset
+
+    def get_sample(self):
+        """retrieve single sample from dataset for fast debugging"""
+        dataset = self._create_dataset()
+        dataset = dataset.take(1)
+        for example in dataset:
+            return self._parser.parse_example(example)
+
     def to_tfdataset(
             self,
             batch: int, epoch: int,
@@ -154,14 +172,7 @@ class Dataset:
             shuffle_seed (int):
                 the random seed for shuffle, default to 42.
         """
-        dataset = tf.data.TFRecordDataset(self._files)
-
-        # apply mask if dataset had been sliced/splitted
-        if self._shard is not None:
-            dataset = tf.data.Dataset.zip((dataset, self._shard))
-            dataset = dataset.filter(lambda data, mask: mask)
-            dataset = dataset.map(lambda data, mask: data)
-
+        dataset = self._create_dataset()
         dataset = dataset.map(
             self._parser.parse_example,
             num_parallel_calls=OUTPUT_PARALLEL_CALL

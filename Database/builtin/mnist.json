@@ -1,0 +1,16 @@
+{
+    "name": "mnist",
+    "location": "/rawdata2/TFDataset",
+    "versions": ["3.0.0"],
+    "info": {
+        "type": "image classification",
+        "image": {
+            "height": 28,
+            "width": 28,
+            "channel": 1
+        }
+    },
+    "parser": "MNIST",
+    "train": {"count": 60000},
+    "test": {"count": 10000}
+}

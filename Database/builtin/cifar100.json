@@ -1,0 +1,18 @@
+{
+    "name": "cifar100",
+    "location": "/rawdata2/TFDataset",
+    "versions": ["3.0.0"],
+    "info": {
+        "type": "image classification",
+        "image": {
+            "height": 32,
+            "width": 32,
+            "channel": 3
+        },
+        "label def": "label.labels.txt",
+        "coarse_label def": "coarse_label.labels.txt"
+    },
+    "parser": "CIFAR100",
+    "train": {"count": 50000},
+    "test": {"count": 10000}
+}
