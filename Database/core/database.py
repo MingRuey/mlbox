@@ -50,11 +50,28 @@ class Dataset:
     def count(self) -> int:
         """Number of data inside Dataset"""
         if self._count is None:
-            cnt = 0
-            for example in tf.data.TFRecordDataset(self._files):
-                cnt += 1
-            self._count = cnt
-        return self._count
+
+            PARALLEL_UNIT = 10
+            n_group, n_remains = divmod(len(self._files), PARALLEL_UNIT)
+            if n_remains:
+                n_group += 1
+
+            files_splitted = [
+                self._files[index*PARALLEL_UNIT:(index+1) * PARALLEL_UNIT]
+                for index in range(n_group)
+            ]
+
+            def _iterate_over_example(files):
+                cnt = 0
+                for example in tf.data.TFRecordDataset(files):
+                    cnt += 1
+                return cnt
+
+            with futures.ThreadPoolExecutor(OUTPUT_PARALLEL_CALL) as executor:
+                counts = executor.map(_iterate_over_example, files_splitted)
+            return sum(counts)
+        else:
+            return self._count
 
     # Both slice and split features are implemented via
     # an internal boolean mask over the dataset.
