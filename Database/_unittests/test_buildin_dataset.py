@@ -26,6 +26,9 @@ class TestAllBuiltin:
 
     def test_loadable(self, config):
         """Can load all built-in datasets"""
+        if config.name == "imagenet":
+            pytest.skip(msg="count ImageNet takes too much time")
+
         db = DBLoader()
         assert db.info == ""
         assert db.train is None
@@ -37,19 +40,13 @@ class TestAllBuiltin:
         assert db.info != ""
 
 
-_IMAGE_DATASETS = [
-    cfg for cfg in BUILT_INS if cfg.name in
-    ["mnist", "cifar100", "cifar10"]
-]
-
-
 @pytest.mark.parametrize(
-    "config", _IMAGE_DATASETS, ids=[cfg.name for cfg in _IMAGE_DATASETS]
+    "config", BUILT_INS, ids=[cfg.name for cfg in BUILT_INS]
 )
 class TestImageDataset:
 
     def test_data_shape(self, config):
-        """Check content of MNIST dataset"""
+        """Check content of built-in dataset"""
         db = DBLoader()
         db.load_built_in(config.name)
 
@@ -57,13 +54,20 @@ class TestImageDataset:
         test_example = db.train.get_sample()
 
         info = config.info["image"]
-        expected_shape = info["height"], info["width"], info["channel"]
+        if config.name == "imagenet":
+            expected_shape = (256, 256, 3)
+        else:
+            expected_shape = info["height"], info["width"], info["channel"]
 
         for exampel in [train_example, test_example]:
             image = train_example["image"].numpy()
             label = train_example["label"].numpy()
             assert image.shape == expected_shape
-            assert label.shape == ()
+
+            if config.name == "imagenet":
+                assert label.shape == (1000,)
+            else:
+                assert label.shape == ()
 
 
 if __name__ == "__main__":

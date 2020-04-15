@@ -2,7 +2,7 @@ import inspect
 import imghdr
 from abc import abstractmethod, ABC
 from pathlib import Path
-from typing import List, Set, Dict, Union
+from typing import List, Set, Dict, Union, Tuple
 
 import tensorflow as tf
 
@@ -156,10 +156,45 @@ class ImageFeature(Feature):
         'image_content': tf.io.FixedLenFeature([], tf.string)
     }
 
+    def __init__(
+            self,
+            resize_shape: Tuple[int, int] = None,
+            method: str = "bilinear"
+            ):
+        """Create ImageFeature with resize options
+
+        Args:
+            resize_shape:
+                a tuple of (height, width) specifying
+                uniform resize applied to images
+            method:
+                the method of resizing,
+                must be one of "bilinear", "lanczos3", "lanczos5",
+                "bicubic", "gaussian", "nearest", "area", "mitchellcubic".
+                If resizing is None, this is ignored.
+        """
+        if resize_shape is not None:
+            availiable_methods = [
+                getattr(tf.image.ResizeMethod, attr)
+                for attr in dir(tf.image.ResizeMethod) if attr.isupper()
+            ]
+            if str(method).lower() not in availiable_methods:
+                msg = "Unrecognized method {}, availiable ones: {}"
+                raise ValueError(msg.format(method, availiable_methods))
+
+        self._shp = resize_shape
+        self._method = str(method).lower()
+
     # Implicitly assuming keys appear in ImageFeature.encoded_features
     def _parse_from(self, image_id, image_type, image_content):
         img = tf.image.decode_image(image_content, channels=0)
         img = tf.cast(img, tf.float32)
+
+        if self._shp is not None:
+            img = tf.image.resize(
+                img, self._shp, self._method, antialias=True
+            )
+
         return {
             'image_id': image_id,
             'image_type': image_type,
