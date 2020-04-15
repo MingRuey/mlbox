@@ -1,8 +1,12 @@
-import cv2
-import numpy as np
-import tensorflow as tf
-from skimage.measure import compare_ssim as ssim
-import pytest
+import os
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
+import tensorflow as tf  # noqa: E402
+from skimage.metrics import structural_similarity as ssim  # noqa: E402
+import pytest  # noqa: E402
 
 from MLBOX.Trainers.TF.Loss import SSIMLoss
 from MLBOX.Trainers.TF._unittests.configs import SAMPLE_DIR  # noqa: E402
@@ -17,28 +21,50 @@ class TestSSIM:
     def test_results_matches_tf(self):
         """The loss value returned should be negative scikit-image"""
         img = cv2.imread(str(COLOR_SAMPLE))[..., ::-1]
-        img = tf.convert_to_tensor(img)
-        img = tf.cast(img, tf.float32)
         imgs = [img, img, img, img]
-        imgs = np.stack([img, img, img, img], axis=0)
         targets = [img, img * 0.95, img - np.min(img), img * 0.8]
-        targets = np.stack(targets, axis=0)
 
-        targets_t = tf.convert_to_tensor(targets)
-        imgs_t = tf.convert_to_tensor(imgs)
+        imgs_t = tf.convert_to_tensor(
+            np.stack(imgs, axis=0), dtype=tf.float32
+        )
+        targets_t = tf.convert_to_tensor(
+            np.stack(targets, axis=0), dtype=tf.float32
+        )
 
         loss = SSIMLoss(max_val=255)(imgs_t, targets_t)
-        neg_ssim = np.mean(1.0 - ssim(imgs, targets, multichannel=True))
-        assert np.allclose(loss.numpy(), neg_ssim)
+        ssims = np.stack(
+            [
+                ssim(
+                    img, target,
+                    gaussian_weights=True, K1=0.01, K2=0.03,
+                    data_range=255, multichannel=True
+                )
+                for img, target in zip(imgs, targets)
+            ],
+            axis=0
+        )
+        neg_ssim = np.mean(1.0 - ssims)
+        assert loss.numpy() - neg_ssim < 1e-4
 
         imgs_t = imgs_t / 255
-        imgs = targets_t / 255
-        targets = imgs_t / 255
         targets_t = targets_t / 255
+        imgs = [img/255 for img in imgs]
+        targets = [target/255 for target in targets]
 
         loss = SSIMLoss(max_val=1)(imgs_t, targets_t)
-        neg_ssim = np.mean(1.0 - ssim(imgs, targets, multichannel=True))
-        assert np.allclose(loss.numpy(), neg_ssim)
+        ssims = np.stack(
+            [
+                ssim(
+                    img, target,
+                    gaussian_weights=True, K1=0.01, K2=0.03,
+                    data_range=1, multichannel=True
+                )
+                for img, target in zip(imgs, targets)
+            ],
+            axis=0
+        )
+        neg_ssim = np.mean(1.0 - ssims)
+        assert loss.numpy() - neg_ssim < 1e-4
 
 
 if __name__ == "__main__":

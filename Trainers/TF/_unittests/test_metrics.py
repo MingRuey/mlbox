@@ -1,15 +1,14 @@
-import pathlib
-
 import os
-import cv2
-import numpy as np
-from skimage.measure import compare_ssim as ssim
+import pathlib
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
+import pytest  # noqa: E402
 import tensorflow as tf  # noqa: E402
 import tensorflow.keras as keras  # noqa: E402
-import pytest  # noqa: E402
+from skimage.metrics import structural_similarity as ssim  # noqa: E402
 
 from MLBOX.Trainers.TF.Metrics import SSIM  # noqa: E402
 from MLBOX.Trainers.TF._unittests.configs import SAMPLE_DIR  # noqa: E402
