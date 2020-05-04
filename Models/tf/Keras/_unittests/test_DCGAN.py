@@ -7,8 +7,8 @@ import tensorflow.keras as keras
 from tensorflow.keras import Input, Model
 import matplotlib.pyplot as plt
 
-from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
-from MLBOX.Models.TF.Keras.DCGAN import ResDiscriminator
+from MLBOX.Models.tf.Keras.DCGAN import Generator, Discriminator
+from MLBOX.Models.tf.Keras.DCGAN import ResDiscriminator
 
 
 class TestGenerator:

@@ -3,8 +3,8 @@ import tensorflow.keras as keras
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Dense
 
-from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
-from MLBOX.Models.TF.Keras.UNet import UNET
+from .DCGAN import Generator, Discriminator
+from .UNet import UNET
 
 
 class SkipGANomalyG:

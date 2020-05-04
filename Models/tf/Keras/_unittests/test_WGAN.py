@@ -13,7 +13,7 @@ from tensorflow.keras.initializers import Constant  # noqa: E402
 from tensorflow.keras.losses import MeanSquaredError  # noqa: E402
 from tensorflow.keras.optimizers import SGD  # noqa: E402
 
-from MLBOX.Models.TF.Keras.WGAN import WeightsClip, WGenerator, WDiscriminator  # noqa: E402
+from MLBOX.Models.tf.Keras.WGAN import WeightsClip, WGenerator, WDiscriminator  # noqa: E402
 
 
 class TestWeightsClip:

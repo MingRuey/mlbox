@@ -9,9 +9,9 @@ import pytest  # noqa: E402
 from tensorflow.keras import Input  # noqa: E402
 from tensorflow.keras.layers import Dense  # noqa: E402
 
-from MLBOX.Models.TF.Keras.wrappers.layer_wrappers import ConstraintWrapper  # noqa: E402
-from MLBOX.Models.TF.Keras.modules.ResDecoder import ResNetDecoder  # noqa: E402
-from MLBOX.Models.TF.Keras.betaVAE import ResNetEncoder, SampleLayer  # noqa: E402
+from MLBOX.Models.tf.Keras.wrappers.layer_wrappers import ConstraintWrapper  # noqa: E402
+from MLBOX.Models.tf.Keras.modules.ResDecoder import ResNetDecoder  # noqa: E402
+from MLBOX.Models.tf.Keras.betaVAE import ResNetEncoder, SampleLayer  # noqa: E402
 
 
 class MockedLayer:

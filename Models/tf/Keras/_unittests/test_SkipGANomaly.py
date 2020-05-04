@@ -8,8 +8,8 @@ import tensorflow as tf  # noqa: E402
 from tensorflow.keras import Input, Model  # noqa: E402
 import pytest  # noqa: E402
 
-from MLBOX.Models.TF.Keras.UNet import _crop_2d, _down_sample, _up_sample  # noqa: E402
-from MLBOX.Models.TF.Keras.UNet import UNET, UNetPadType  # noqa: E402
+from MLBOX.Models.tf.Keras.UNet import _crop_2d, _down_sample, _up_sample  # noqa: E402
+from MLBOX.Models.tf.Keras.UNet import UNET, UNetPadType  # noqa: E402
 
 
 class TestUNet:

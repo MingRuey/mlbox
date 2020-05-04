@@ -3,8 +3,8 @@ from typing import Dict, List
 
 import tensorflow as tf
 
-from MLBOX.Database.core.features import Feature
-from MLBOX.Database.core.features import ImageFeature
+from .features import Feature
+from .features import ImageFeature
 
 
 class ParserFMT(ABC):

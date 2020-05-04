@@ -4,8 +4,8 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.constraints import Constraint
 from tensorflow.keras.layers import Dense, Conv2D, BatchNormalization
 
-from MLBOX.Models.TF.Keras.wrappers.layer_wrappers import ConstraintWrapper
-from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
+from .wrappers.layer_wrappers import ConstraintWrapper
+from .DCGAN import Generator, Discriminator
 
 
 class WeightsClip(Constraint):

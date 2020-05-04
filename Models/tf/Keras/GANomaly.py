@@ -3,7 +3,7 @@ import tensorflow.keras as keras
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Dense
 
-from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
+from .DCGAN import Generator, Discriminator
 
 
 class GANomalyG:

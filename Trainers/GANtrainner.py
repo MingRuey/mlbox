@@ -19,10 +19,10 @@ from tensorflow.keras.optimizers import SGD, Adam  # noqa: E402
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 
-from MLBOX.Database.core.database import Dataset  # noqa: E402
-from MLBOX.Trainers.TF.Callbacks import ModelLogger, TrainRecord  # noqa: E402
-from MLBOX.Trainers.TF.Metrics import SSIM  # noqa: E402
-from MLBOX.Trainers.TF.Loss import SSIMLoss  # noqa: E402
+from ..Database.core.database import Dataset  # noqa: E402
+from .TF.Callbacks import ModelLogger, TrainRecord  # noqa: E402
+from .TF.Metrics import SSIM  # noqa: E402
+from .TF.Loss import SSIMLoss  # noqa: E402
 
 
 class KerasGANTrainner:

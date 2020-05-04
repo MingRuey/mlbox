@@ -1,8 +1,8 @@
 from typing import Dict
 import tensorflow as tf
 
-from MLBOX.Database.core.parsers import ParserFMT, Feature
-from MLBOX.Database.core.features import ImageFeature, IntLabel
+from ..core.parsers import ParserFMT, Feature
+from ..core.features import ImageFeature, IntLabel
 
 
 class _ClassficationFMT(ParserFMT):

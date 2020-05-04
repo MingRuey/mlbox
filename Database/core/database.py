@@ -11,8 +11,8 @@ from typing import List, Tuple
 import numpy as np
 import tensorflow as tf
 
-from MLBOX.Database.builtin import BUILT_INS
-from MLBOX.Database.core.parsers import ParserFMT
+from .parsers import ParserFMT
+from ..builtin import BUILT_INS
 
 OUTPUT_PARALLEL_CALL = 8
 OUTPUT_BUFFER_TO_BATCH_RATIO = 16
