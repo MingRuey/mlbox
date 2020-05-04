@@ -60,54 +60,88 @@ class TestLabelFeature:
 
 class TestImageFeature:
 
-    encoded = None
     sample = str(SAMPLE_FILES_DIR.joinpath("Freyja.jpg"))
 
-    def test_create_from_file(self):
-        """
-        the create_keys should match inputs of _create_from
-        the keys returned by _create_from should match parse_features
-        """
-        feat = ImageFeature()
+    @staticmethod
+    def _encode_and_parse(feat, inputs):
+        """Encode input using ._create_from and decode using ._parse_from"""
 
-        features = (TestImageFeature.sample, )
-        inputs = {}
-        for key, feature in zip(feat.create_keys, features):
-            inputs[key] = feature
+    @staticmethod
+    def check_ssim(image: tf.Tensor, criteria: float = 0.99):
+        """Check ssim with groud-truth sample"""
+        gt = cv2.imread(TestImageFeature.sample)
+        gt = cv2.cvtColor(gt, cv2.COLOR_BGR2RGB)
+        if image.shape != gt.shape:
+            gt = cv2.resize(gt, (255, 255))
+        gt = tf.convert_to_tensor(gt, dtype=tf.float32)
+        ssim = tf.image.ssim(image, gt, max_val=255)
+        assert ssim.numpy() > criteria
 
-        encoded = feat._create_from(**inputs)
+    @pytest.mark.parametrize(
+        "resize", [False, True]
+    )
+    def test_encode_decode_in_eager_execution(self, resize):
+        """Test encode-decode within eager execution mode
+
+        Use ssim to check the decoded image
+        """
+        if resize:
+            feat = ImageFeature(resize_shape=(255, 255))
+        else:
+            feat = ImageFeature()
+
+        def encode_decode(feat, image):
+            encoded = feat._create_from(image=image)
+            example = tf.train.Example(
+                features=tf.train.Features(feature=encoded)
+            )
+            parsed = tf.io.parse_single_example(
+                example.SerializeToString(), features=feat.encoded_features
+            )
+            parsed = feat._parse_from(**parsed)
+            return encoded, parsed
+
+        encoded, decoded = encode_decode(
+            feat=feat, image=TestImageFeature.sample
+        )
         assert encoded.keys() == feat.encoded_features.keys()
 
-        TestImageFeature.encoded = encoded
-
-    def test_parse_from_features(self):
-        """
-        the parse_features should match inputs of _parse_from.
-        the parsed tensor should match what had been encoded.
-        we use ssim to check image equality
-        """
-        if self.encoded is None:
-            msg = "Fail due to {} fails."
-            raise RuntimeError(msg.format(self.test_create_from_file.__name__))
-
-        feat = ImageFeature()
-
-        example = tf.train.Example(features=tf.train.Features(
-            feature=TestImageFeature.encoded
-        ))
-        parsed = tf.io.parse_single_example(
-            example.SerializeToString(), features=feat.encoded_features
-        )
-        parsed = feat._parse_from(**parsed)
-        image_tensor = parsed["image_content"]
-
         # test parsed image similary with original image
-        ground_truth = cv2.imread(TestImageFeature.sample)
-        ground_truth = cv2.cvtColor(ground_truth, cv2.COLOR_BGR2RGB)
-        ground_truth = tf.convert_to_tensor(ground_truth, dtype=tf.float32)
-        ssim = tf.image.ssim(image_tensor, ground_truth, max_val=255)
-        assert ssim.numpy() > 0.99
+        image_tensor = decoded["image_content"]
+        if resize:
+            TestImageFeature.check_ssim(image_tensor, criteria=0.95)
+        else:
+            TestImageFeature.check_ssim(image_tensor)
 
+    @pytest.mark.parametrize(
+        "resize", [False, True]
+    )
+    def test_decode_in_graph_mode(self, resize):
+        """A regression test for decode image in graph mode"""
+
+        @tf.function
+        def encode_decode(feat, image):
+            encoded = feat._create_from(image=image)
+            example = tf.train.Example(
+                features=tf.train.Features(feature=encoded)
+            )
+            parsed = tf.io.parse_single_example(
+                example.SerializeToString(), features=feat.encoded_features
+            )
+            parsed = feat._parse_from(**parsed)
+            return parsed
+
+        if resize:
+            feat = ImageFeature(resize_shape=(255, 255))
+        else:
+            feat = ImageFeature()
+
+        decoded = encode_decode(feat, image=TestImageFeature.sample)
+        image_tensor = decoded["image_content"]
+        if resize:
+            TestImageFeature.check_ssim(image_tensor, criteria=0.95)
+        else:
+            TestImageFeature.check_ssim(image_tensor)
 
 if __name__ == "__main__":
     pytest.main(["-s", "-v", __file__])
