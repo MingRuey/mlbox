@@ -187,7 +187,10 @@ class ImageFeature(Feature):
 
     # Implicitly assuming keys appear in ImageFeature.encoded_features
     def _parse_from(self, image_id, image_type, image_content):
-        img = tf.image.decode_image(image_content, channels=0)
+        img = tf.image.decode_image(
+            image_content,
+            channels=0, expand_animations=False
+        )
         img = tf.cast(img, tf.float32)
 
         if self._shp is not None:
