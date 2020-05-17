@@ -69,9 +69,8 @@ class Dataset:
 
             with futures.ThreadPoolExecutor(OUTPUT_PARALLEL_CALL) as executor:
                 counts = executor.map(_iterate_over_example, files_splitted)
-            return sum(counts)
-        else:
-            return self._count
+            self._count = sum(counts)
+        return self._count
 
     # Both slice and split features are implemented via
     # an internal boolean mask over the dataset.
@@ -283,6 +282,8 @@ class DBLoader:
         loc = Path(target.location).joinpath(target.name).joinpath(version)
         self.load(directory=str(loc), parser=parser)
 
+        self._train._count = target.train.get("count")
+        self._test._count = target.test.get("count")
         self._info = "Database {}(ver {})\ninfo: {}".format(
             name, version, target.info
         )
