@@ -37,7 +37,8 @@ class CIFAR100(CIFAR10):
 class IMAGENET(ParserFMT):
 
     features = [
-        ImageFeature(resize_shape=(256, 256)), IntLabel(1000)
+        ImageFeature(resize_shape=(256, 256), channels=3),
+        IntLabel(1000)
     ]
 
     def parse_example(self, example: tf.Tensor) -> Dict[str, tf.Tensor]:

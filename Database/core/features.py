@@ -159,6 +159,7 @@ class ImageFeature(Feature):
     def __init__(
             self,
             resize_shape: Tuple[int, int] = None,
+            channels: int = 0,
             method: str = "bilinear"
             ):
         """Create ImageFeature with resize options
@@ -167,6 +168,8 @@ class ImageFeature(Feature):
             resize_shape:
                 a tuple of (height, width) specifying
                 uniform resize applied to images
+            channels:
+                decoded image channels, 0 for auto-detecting.
             method:
                 the method of resizing,
                 must be one of "bilinear", "lanczos3", "lanczos5",
@@ -183,13 +186,14 @@ class ImageFeature(Feature):
                 raise ValueError(msg.format(method, availiable_methods))
 
         self._shp = resize_shape
+        self._channels = channels
         self._method = str(method).lower()
 
     # Implicitly assuming keys appear in ImageFeature.encoded_features
     def _parse_from(self, image_id, image_type, image_content):
         img = tf.image.decode_image(
-            image_content,
-            channels=0, expand_animations=False
+            image_content, channels=self._channels,
+            expand_animations=False
         )
         img = tf.cast(img, tf.float32)
 
