@@ -180,10 +180,9 @@ def ResNeXt50(
 
     PRETRAINED = str(PRETRAINED_PATH.joinpath("ResNeXt50"))
 
-    inputs = keras.Input(shape=input_shape)
+    inputs = keras.Input(shape=input_shape, name="input1")
     outputs = ResNeXt(
-        name="ResNeXt50",
-        n_blocks=[3, 4, 6, 3],
+        name="ResNeXt50", n_blocks=[3, 4, 6, 3],
         in_channels=input_shape[-1],
         include_fc=include_fc, n_fc=n_fc,
         **kwargs
