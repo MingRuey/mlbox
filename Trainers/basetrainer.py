@@ -20,11 +20,10 @@ from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 
 from ..Database.core.database import Dataset  # noqa: E402
-from ..Scenes.SimpleSplit import SimpleSplit   # noqa: E402
 from .TF.Callbacks import ModelLogger, TrainRecord  # noqa: E402
 
 
-class KerasBaseTrainner:
+class KerasBaseTrainer:
 
     def __init__(
             self,
@@ -62,6 +61,7 @@ class KerasBaseTrainner:
             self,
             train_db: Dataset,
             vali_db: Dataset,
+            validation_freq: int = 1,
             lr_decay_factor: float = 0.5,
             batch_size: int = 8,
             min_epoch: int = 40,
@@ -98,11 +98,15 @@ class KerasBaseTrainner:
                 print("Re-train from epoch: {}".format(init_epoch))
 
         self._model.fit(
-            x=train_db.to_tfdataset(epoch=max_epoch, batch=batch_size),
+            x=train_db.to_tfdataset(
+                epoch=max_epoch, batch=batch_size
+            ),
             epochs=max_epoch,
-            steps_per_epoch=train_db.data_count // batch_size,
-            validation_data=vali_db.get_dataset(epoch=max_epoch, batchsize=batch_size),
-            validation_steps=vali_db.data_count // batch_size,
+            steps_per_epoch=train_db.count // batch_size,
+            validation_data=vali_db.to_tfdataset(
+                epoch=max_epoch, batch=batch_size
+            ),
+            validation_steps=vali_db.count // batch_size,
             callbacks=[
                 ModelLogger(
                     train_record=TrainRecord(),
@@ -129,5 +133,5 @@ class KerasBaseTrainner:
                     verbose=1
                 )
             ],
-            validation_freq=1
+            validation_freq=validation_freq
         )

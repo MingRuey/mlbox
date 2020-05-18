@@ -1,5 +1,5 @@
 import random
-from .Database.core.database import Dataset
+from ..Database.core.database import Dataset
 
 random.seed(42)   # the answers to life the universe and everything
 
