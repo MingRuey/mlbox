@@ -163,7 +163,7 @@ class ResNeXt(kk.Layer):
     def call(self, x, training=None):
         x = self.head(x)
         for conv in self.convs:
-            x = conv(x)
+            x = conv(x, training=training)
         if self.include_fc:
             x = self.pool(x)
             x = self.output1(x)

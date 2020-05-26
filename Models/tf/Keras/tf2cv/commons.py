@@ -75,9 +75,9 @@ class ConvBlock(kk.Layer):
     def call(self, x, training=None):
         if self.pad:
             x = self.pad(x)
-        x = self.conv(x)
+        x = self.conv(x, training=training)
         if self.bn:
-            x = self.bn(x)
+            x = self.bn(x, training=training)
         if self.activate:
             x = self.activate(x)
         return x
@@ -249,15 +249,15 @@ class GroupConv(kk.Layer):
             x = self.pad(x)
 
         if self.groups == 1:
-            x = self.conv(x)
+            x = self.conv(x, training=training)
         else:
             yy = []
             xx = tf.split(x, num_or_size_splits=self.groups, axis=-1)
             for xi, convi in zip(xx, self.convs):
-                yy.append(convi(xi))
+                yy.append(convi(xi, training=training))
             x = tf.concat(yy, axis=-1)
         if self.bn:
-            x = self.bn(x)
+            x = self.bn(x, training=training)
         if self.activate:
             x = self.activate(x)
         return x
