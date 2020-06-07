@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import time
+from collections.abc import Hashable
 from concurrent import futures
 from pathlib import Path
 from queue import Queue
@@ -391,7 +392,16 @@ class DBuilder:
 
         for item in generator:
             try:
-                index = hash(frozenset(item.values())) % num_of_tfrecords
+                immuta_vals = frozenset(
+                    val for val in item.values()
+                    if isinstance(val, Hashable)
+                )
+                if not immuta_vals:
+                    msg = "Random splitting into tfrecords requires" + \
+                        "at least one feature in item to be hashable. Get {}."
+                    item_types = {k: type(v) for k, v in item.items()}
+                    raise ValueError(msg.format(item_types))
+                index = hash(immuta_vals) % num_of_tfrecords
             except Exception:
                 msg = "Error while hashing item {} in generator."
                 logging.exception(msg.format(item))
