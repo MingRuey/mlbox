@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import List, Set, Dict, Union, Tuple
 
 import tensorflow as tf
+import numpy as np
+import cv2
 
 
 def _tffeature_int64(value):
@@ -261,6 +263,144 @@ class BoundingBox(Feature):
             "bbox_classes": _tffeature_float(classes)
         }
         return features
+
+
+class RLE:
+
+    def __init__(self, bits: List[int], cls_idx: int):
+        """Create RLE type segmentaion label
+
+        Args:
+            bits (List[int]): the uncompressed RLE format bits
+            cls_idx (int): the class id of the segmentation
+        """
+        self._bits = list(bits)
+        self._cls_idx = int(cls_idx)
+        if int(cls_idx) == 0:
+            msg = "class index of segmentation must >= 1"
+            raise ValueError(msg)
+
+    @property
+    def bits(self) -> List[int]:
+        return list(self._bits)
+
+    @property
+    def class_id(self) -> int:
+        return self._cls_idx
+
+
+class PolyGon:
+
+    def __init__(self, pts: List[Tuple[int, int]], cls_idx: int):
+        """Create PolyGon type segmnetaion label
+
+        Args:
+            pts (List[Tuple[int, int]]):
+                A list of points (y, x) defining the PolyGon
+            cls_idx (int):
+                class id of the polygon
+        """
+        self._pts = list(pts)
+        if int(cls_idx) == 0:
+            msg = "class index of segmentation must >= 1"
+            raise ValueError(msg)
+        self._cls_idx = int(cls_idx)
+
+    @property
+    def points(self) -> List[Tuple[int, int]]:
+        """A list of points (y, x) defining the PolyGon"""
+        return list(self._pts)
+
+    @property
+    def class_id(self) -> int:
+        return self._cls_idx
+
+
+class Segmentation(Feature):
+
+    encoded_features = {
+        "segment_mask": tf.io.FixedLenFeature([], tf.string)
+    }
+
+    @staticmethod
+    def _encode_image(array: np.ndarray):
+        success, encoded = cv2.imencode(".bmp", array)
+        return {"segment_mask": _tffeature_bytes(encoded.tobytes())}
+
+    @staticmethod
+    def _check_id(class_id: int):
+        if class_id <= 0 or class_id > 255:
+            msg = "Invalid segmentation class id: {}. {}"
+            reason = "Segment mask use uint8 and 0 is background."
+            raise ValueError(msg.format(class_id, reason))
+
+    def _create_from_rle(
+            self, rles: List[RLE], mask_shape: Tuple[int, int]
+            ):
+        img = np.zeros(mask_shape[0] * mask_shape[1], dtype=np.uint8)
+        for rle in rles:
+            self._check_id(rle.class_id)
+            if not sum(rle.bits) == img.size:
+                raise ValueError("invalid RLE bits for shape {}")
+
+            val = 0
+            idx = 0
+            for length in rle.bits:
+                if not val:
+                    val = rle.class_id
+                else:
+                    img[idx:idx+length] = rle.class_id
+                    val = 0
+                idx += length
+        img = img.reshape(mask_shape)
+        return img
+
+    def _create_from_polygons(
+            self, polygons: List[PolyGon], mask_shape: Tuple[int, int]
+            ):
+        img = np.zeros(mask_shape, dtype=np.uint8)
+        for poly in polygons:
+            self._check_id(poly.class_id)
+
+            pts = np.array(poly.points)
+            pts = pts.astype(np.int)
+            # cv2 points use (x, y) format instead of (y, x)
+            pts = pts[:, ::-1]
+            cv2.fillConvexPoly(img, pts, poly.class_id)
+        return img
+
+    def _create_from(
+            self,
+            mask_shape: Tuple[int, int],
+            poly_or_rle: List[Union[PolyGon, RLE]]
+            ):
+        """Segmentaion label can be either 'polygon' or 'rle' format
+
+        Note:
+            if a pixel is labeled more than once,
+            rle is usually prefered (since it's more accurate than polygon).
+            but the behaviour is not guaranteed.
+
+        Args:
+            mask_shape: the image shape in (h, w)
+            poly_or_rle:
+                Segmentations specify by PolyGon or RLE.
+        """
+        mask_shape = mask_shape[:2]  # safeguard against (h, w, c) input
+        polygons = [item for item in poly_or_rle if isinstance(item, PolyGon)]
+        rles = [item for item in poly_or_rle if isinstance(item, RLE)]
+
+        poly_img = self._create_from_polygons(polygons, mask_shape)
+        rle_img = self._create_from_rle(rles, mask_shape)
+        mask_img = np.where(rle_img, rle_img, poly_img)
+        return self._encode_image(mask_img)
+
+    def _parse_from(self, segment_mask):
+        mask = tf.image.decode_image(
+            segment_mask, channels=0, expand_animations=False
+        )
+        mask = mask[..., 0]
+        return {"segment_mask": mask}
 
 
 class ImageFeature(Feature):

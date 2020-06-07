@@ -1,9 +1,9 @@
 import os
 import math
 from pathlib import Path
+from typing import List
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 
 import pytest  # noqa: E402
 import cv2  # noqa: E402
@@ -12,6 +12,7 @@ import tensorflow as tf  # noqa: E40
 
 from MLBOX.Database.core.features import IntLabel, StrLabel, FloatLabel  # noqa: E402
 from MLBOX.Database.core.features import ImageFeature, BoundingBox  # noqa: E402
+from MLBOX.Database.core.features import Segmentation, PolyGon, RLE  # noqa: E402
 from MLBOX.Database._unittests.configs import SAMPLE_FILES_DIR  # noqa: E402
 
 
@@ -116,6 +117,52 @@ class TestBBoxFeatures:
                 elif idx < nCapacity - 1:
                     bbox = parsed[idx, ...].numpy()
                     assert np.allclose(np.array((0, 0, 0, 0, -1)), bbox)
+
+
+class TestSegmentationFeature:
+
+    def test_encode_decode_polygon(self):
+        """Test Segmentation feature in polygon format"""
+        polygons = [
+            PolyGon(
+                pts=[(50, 40), (152, 34), (103, 90), (40, 60)], cls_idx=1
+            ),
+            PolyGon(pts=[(0, 0), (10, 5), (4, 8)], cls_idx=2)
+        ]
+        feat = Segmentation()
+        encoded, parsed = encode_decode(
+            feat=feat, poly_or_rle=polygons, mask_shape=(200, 200)
+        )
+        assert encoded.keys() == feat.encoded_features.keys()
+
+        parsed = parsed["segment_mask"].numpy()
+        for y, x in [(100, 40), (90, 60), (50, 59)]:
+            assert parsed[y, x] == 1
+
+        for y, x in [(3, 3), (3, 7), (9, 4)]:
+            assert parsed[y, x] == 2
+
+    def test_encode_decode_rle(self):
+        """Test Segmentation feature in run-length-encode format"""
+        rles = [
+            RLE(bits=[10, 10, 190, 10, 190, 10, 39580], cls_idx=1),
+            RLE(bits=[200 * 170 + 190] + [10, 190] * 29 + [10], cls_idx=2)
+        ]
+        feat = Segmentation()
+        encoded, parsed = encode_decode(
+            feat=feat, poly_or_rle=rles, mask_shape=(200, 200)
+        )
+        assert encoded.keys() == feat.encoded_features.keys()
+
+        parsed = parsed["segment_mask"].numpy()
+        for y, x in [(0, 0), (4, 15)]:
+            assert parsed[y, x] == 0
+
+        for y, x in [(0, 11), (1, 19), (2, 15)]:
+            assert parsed[y, x] == 1
+
+        expected = 2 * np.ones((30, 10), dtype=np.uint8)
+        assert np.all(parsed[170:, 190:] == expected)
 
 
 class TestImageFeature:

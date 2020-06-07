@@ -1,0 +1,31 @@
+{
+    "name": "coco-objdet",
+    "location": "/rawdata2/TFDataset/coco/",
+    "versions": [
+        "COCO-2017-ObjectDetection-1.0.0"
+    ],
+    "info": {
+        "type": "object detection",
+        "image": {
+            "height": null,
+            "width": null,
+            "channel": 3
+        },
+        "label def": {
+            "format": "yxhw",
+            "id mapping": "CoCo-2017_object-detection_classes.json"
+        },
+        "boxes": {
+            "classes": 80,
+            "train": {
+                "max boxes of single data": 93
+            },
+            "test": {
+                "max boxes of single data": 63
+            }
+        }
+    },
+    "parser": "CoCoObjDet",
+    "train": {"count": 118287},
+    "test": {"count": 5000}
+}
