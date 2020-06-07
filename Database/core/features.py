@@ -147,6 +147,122 @@ class FloatLabel(_SimpleLabel):
         return {"classes": _tffeature_float(label)}
 
 
+class BoundingBox(Feature):
+    """BoundingBoxes feature in COCO-like format, but inverse x-y"""
+
+    encoded_features = {
+        "bbox_ymins": tf.io.FixedLenSequenceFeature(
+            [], dtype=tf.float32, allow_missing=True
+        ),
+        "bbox_xmins": tf.io.FixedLenSequenceFeature(
+            [], dtype=tf.float32, allow_missing=True
+        ),
+        "bbox_heights": tf.io.FixedLenSequenceFeature(
+            [], dtype=tf.float32, allow_missing=True
+        ),
+        "bbox_widths": tf.io.FixedLenSequenceFeature(
+            [], dtype=tf.float32, allow_missing=True
+        ),
+        "bbox_classes": tf.io.FixedLenSequenceFeature(
+            [], dtype=tf.float32, allow_missing=True
+        )
+    }
+
+    def __init__(
+            self,
+            n_class: int,
+            max_bbox_per_data: int,
+            ):
+        """
+        Args:
+            n_class (int): total number of classes
+            max_bbox_per_data (int):
+                Number of bxoes per data instance.
+                Note that this settings only affects parsing,
+                number of encoded bounding boxes can still exceeds this number.
+        """
+        self.n_class = int(n_class)
+        self.n_box = int(max_bbox_per_data)
+
+        pad_constant = tf.constant([0, 0, 0, 0, -1], dtype=tf.float32)
+        pad_constant = tf.expand_dims(pad_constant, axis=-1)
+        self._pad_constant = pad_constant
+
+    def _parse_from(
+            self,
+            bbox_ymins, bbox_xmins,
+            bbox_heights, bbox_widths, bbox_classes
+            ):
+        stack = tf.stack(
+            [bbox_ymins, bbox_xmins, bbox_heights, bbox_widths, bbox_classes],
+            axis=0, name="bbox_parser_stack"
+        )
+        nEncoded = tf.shape(stack)[1]
+
+        def pad(n_box=self.n_box):
+            multiples = tf.stack([1, (self.n_box - nEncoded)], axis=0)
+            padded = tf.tile(self._pad_constant, multiples=multiples)
+            return tf.concat([stack, padded], axis=1)
+
+        def crop(n_box=self.n_box):
+            return stack[:, :self.n_box]
+
+        crop_or_pad = tf.case(
+            [
+                (tf.less(nEncoded, self.n_box), pad),
+                (tf.greater(nEncoded, self.n_box), crop)
+            ],
+            default=lambda: stack,
+            name="bbox_parse_padding_or_crop"
+        )
+        bboxes = tf.transpose(crop_or_pad, name="bbox_parser_transpose")
+        return {"boxes": bboxes}
+
+    def _create_from(self, boxes):
+        """Create tffeatures for boxing boxes
+
+        Args:
+            boxes (List of Tuple(float, float, float, float, int)):
+                List of bounding boxes in [ymin, xmin, height, width, class]
+                (COCO-like but in the order of x-y is reversed)
+        """
+        ymins = []
+        xmins = []
+        heights = []
+        widths = []
+        classes = []
+        for bbox in boxes:
+            if len(bbox) != 5:
+                msg = "Invalid box format, should be (y, x, h, w, class), got {}"
+                raise ValueError(msg.format(bbox))
+
+            ymin, xmin, h, w, cls_index = bbox
+            if ymin < 0 or xmin < 0:
+                msg = "Invalid box (ymin, xmin) labels must >= 0, get {}"
+                raise ValueError(msg.format((ymin, xmin)))
+            if h <= 0 or w <= 0:
+                msg = "Invalid box (height, width), must > 0, get {}"
+                raise ValueError(msg.format((h, w)))
+            if cls_index > self.n_class - 1:
+                msg = "Invalid class index: {} exceeds defined n_class {}"
+                raise ValueError(msg.format(cls_index, self.n_class))
+
+            ymins.append(ymin)
+            xmins.append(xmin)
+            heights.append(h)
+            widths.append(w)
+            classes.append(cls_index)
+
+        features = {
+            "bbox_ymins": _tffeature_float(ymins),
+            "bbox_xmins": _tffeature_float(xmins),
+            "bbox_heights": _tffeature_float(heights),
+            "bbox_widths": _tffeature_float(widths),
+            "bbox_classes": _tffeature_float(classes)
+        }
+        return features
+
+
 class ImageFeature(Feature):
     """Encode image content from file"""
 
