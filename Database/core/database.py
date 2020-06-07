@@ -195,7 +195,7 @@ class Dataset:
             num_parallel_calls=OUTPUT_PARALLEL_CALL
         )
         dataset = dataset.shuffle(
-            shuffle_n_batch * batch, seed=42,
+            shuffle_n_batch * batch, seed=shuffle_seed,
             reshuffle_each_iteration=reshuffle_per_epoch
         )
         dataset = dataset.repeat(epoch)
