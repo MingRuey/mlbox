@@ -1,0 +1,21 @@
+{
+    "name": "coco-seg",
+    "location": "/rawdata2/TFDataset/coco/",
+    "versions": [
+        "COCO-2017-Segmentation-1.0.0"
+    ],
+    "info": {
+        "type": "semantic segmentation",
+        "image": {
+            "height": null,
+            "width": null,
+            "channel": 3
+        },
+        "label def": {
+            "id mapping": "CoCo-2017_segmentation_classes.json"
+        }
+    },
+    "parser": "CoCoSeg",
+    "train": {"count": 118287},
+    "test": {"count": 5000}
+}
