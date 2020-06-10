@@ -7,7 +7,6 @@ import cv2
 import numpy as np
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 
 from MLBOX.Database.builtin import BUILT_INS  # noqa: E042
 from MLBOX.Database import DBLoader  # noqa: E042
