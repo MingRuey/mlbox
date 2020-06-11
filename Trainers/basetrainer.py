@@ -4,14 +4,6 @@ import logging
 import pathlib
 import numpy as np
 
-file = os.path.basename(__file__)
-file = pathlib.Path(file).stem
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s-%(name)s-%(message).1000s ',
-    handlers=[logging.FileHandler("{}.log".format(file))]
-    )
-
 import tensorflow as tf  # noqa: E402
 import tensorflow.keras as keras  # noqa: E402
 from tensorflow.keras.layers import SimpleRNN, LSTM, Dense   # noqa: E402
@@ -64,7 +56,6 @@ class KerasBaseTrainer:
             validation_freq: int = 1,
             lr_decay_factor: float = 0.5,
             batch_size: int = 8,
-            min_epoch: int = 40,
             max_epoch: int = 200,
             early_stop_patience: int = 20,
             load_best: int = True
@@ -75,8 +66,6 @@ class KerasBaseTrainer:
             train_db (Dataset): database of training set
             vali_db (Dataset): database of validation set
             batch_size (int, optional): Defaults to 8.
-            min_epoch (int, optional):
-                The minimum epoch for training. Defaults to 40.
             max_epoch (int, optional):
                 The maximum epoch for training. Defaults to 200.
             early_stop_patience (int, optional):
@@ -117,9 +106,9 @@ class KerasBaseTrainer:
                     ),
                 ReduceLROnPlateau(
                     factor=lr_decay_factor,
-                    patience=early_stop_patience // 3,
+                    patience=3,
                     min_delta=1e-4,
-                    cooldown=2,
+                    cooldown=1,
                     min_lr=1e-6,
                     monitor='val_loss', verbose=1, mode='min',
                     ),

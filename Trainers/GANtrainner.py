@@ -4,14 +4,6 @@ import logging
 import pathlib
 import numpy as np
 
-file = os.path.basename(__file__)
-file = pathlib.Path(file).stem
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s-%(name)s-%(message).1000s ',
-    handlers=[logging.FileHandler("{}.log".format(file))]
-    )
-
 import tensorflow as tf  # noqa: E402
 import tensorflow.keras as keras  # noqa: E402
 from tensorflow.keras.layers import SimpleRNN, LSTM, Dense   # noqa: E402
