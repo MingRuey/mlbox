@@ -50,7 +50,7 @@ class ConvBlock(kk.Layer):
                  use_bn: bool = True,
                  bn_eps: bool = 1e-5,
                  activation="relu",
-                 kernel_initializer="he_uniform",
+                 kernel_initializer="glorot_uniform",
                  kernel_regularizer=None,
                  kernel_constraint=None,
                  **kwargs):
@@ -90,7 +90,7 @@ def conv1x1_block(in_channels,
                   use_bn=True,
                   bn_eps=1e-5,
                   activation="relu",
-                  kernel_initializer="he_uniform",
+                  kernel_initializer="glorot_uniform",
                   kernel_regularizer=None,
                   kernel_constraint=None,
                   **kwargs):
@@ -139,7 +139,7 @@ def conv7x7_block(in_channels,
                   use_bn=True,
                   bn_eps=1e-5,
                   activation="relu",
-                  kernel_initializer="he_uniform",
+                  kernel_initializer="glorot_uniform",
                   kernel_regularizer=None,
                   kernel_constraint=None,
                   **kwargs):
@@ -203,7 +203,7 @@ class GroupConv(kk.Layer):
                  use_bn: bool = True,
                  bn_eps: bool = 1e-5,
                  activation="relu",
-                 kernel_initializer="he_uniform",
+                 kernel_initializer="glorot_uniform",
                  kernel_regularizer=None,
                  kernel_constraint=None,
                  **kwargs):
@@ -272,7 +272,7 @@ def groupconv3x3_block(in_channels,
                        use_bn=True,
                        bn_eps=1e-5,
                        activation="relu",
-                       kernel_initializer="he_uniform",
+                       kernel_initializer="glorot_uniform",
                        kernel_regularizer=None,
                        kernel_constraint=None,
                        **kwargs):
@@ -288,7 +288,7 @@ def groupconv3x3_block(in_channels,
             Number of groups in Group convolution
         strides : int or tuple/list of 2 int, default 1
             Strides of the convolution.
-        padding : int or tuple/list of 2 int, default 3
+        padding : int or tuple/list of 2 int, default 1
             Padding value for convolution layer.
         use_bias : bool, default False
             Whether the layer uses a bias vector.

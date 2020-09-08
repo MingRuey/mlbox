@@ -106,9 +106,9 @@ class KerasBaseTrainer:
                     ),
                 ReduceLROnPlateau(
                     factor=lr_decay_factor,
-                    patience=3,
-                    min_delta=1e-4,
-                    cooldown=1,
+                    patience=4,
+                    min_delta=0.1,
+                    cooldown=0,
                     min_lr=1e-6,
                     monitor='val_loss', verbose=1, mode='min',
                     ),

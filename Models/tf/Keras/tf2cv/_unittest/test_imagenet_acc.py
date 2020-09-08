@@ -7,6 +7,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.backend as K
+import cv2
 import numpy as np
 import pytest
 
@@ -14,6 +15,7 @@ from MLBOX.Database import DBLoader
 from MLBOX.Database.builtin.parsers import IMAGENET
 from MLBOX.Models import ResNeXt50
 from MLBOX.Models.tf.Keras.utils import log_model
+from MLBOX.playground.script_train_imagenet import RemapImagenet
 
 
 def count_trainable(model, name):
@@ -21,20 +23,22 @@ def count_trainable(model, name):
     print(name, trainalbe)
 
 
-class RemapImagenet(IMAGENET):
-
-    def parse_example(self, example: tf.Tensor):
-        example = super().parse_example(example)
-        example["input1"] = example.pop("image")
-        example["output1"] = example.pop("label")
-        return example
-
-
 class TestImageNetInference:
 
     def test_top1_accuracy(self):
         pass
 
+    def test_examine_image(self, tmp_path):
+        imagenet = DBLoader()
+        imagenet.load_built_in("imagenet", parser=RemapImagenet())
+        dataset = imagenet.test.to_tfdataset(batch=1, epoch=1)
+        dataset = dataset.take(20)
+        for idx, data in enumerate(dataset):
+            image, label = data
+            img = image[0, ..., ::-1].numpy()
+            cv2.imwrite(str(tmp_path.joinpath("{:02d}.bmp".format(idx))), img)
+
+    @pytest.mark.skip(reason="saving time")
     @pytest.mark.parametrize(
         "model", ["resnext"]
     )
@@ -51,19 +55,16 @@ class TestImageNetInference:
             )
             print(model.count_params())
 
-        # imagenet = DBLoader()
-        # imagenet.load_built_in(
-        #     "imagenet", parser=RemapImagenet()
-        # )
+        imagenet = DBLoader()
+        imagenet.load_built_in(
+            "imagenet", parser=RemapImagenet()
+        )
 
-        # dataset = imagenet.test.to_tfdataset(batch=1, epoch=1)
-        # dataset = dataset.take(1000)
-        # for data in dataset:
-        #     print(data)
-        #     break
-        # start = time.time()
-        # model.predict(dataset)
-        # print(time.time() - start)
+        dataset = imagenet.test.to_tfdataset(batch=1, epoch=1)
+        dataset = dataset.take(1000)
+        start = time.time()
+        model.predict(dataset)
+        print(time.time() - start)
 
 
 if __name__ == "__main__":
