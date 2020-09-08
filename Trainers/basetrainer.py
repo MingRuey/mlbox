@@ -4,14 +4,6 @@ import logging
 import pathlib
 import numpy as np
 
-file = os.path.basename(__file__)
-file = pathlib.Path(file).stem
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s-%(name)s-%(message).1000s ',
-    handlers=[logging.FileHandler("{}.log".format(file))]
-    )
-
 import tensorflow as tf  # noqa: E402
 import tensorflow.keras as keras  # noqa: E402
 from tensorflow.keras.layers import SimpleRNN, LSTM, Dense   # noqa: E402
@@ -19,12 +11,11 @@ from tensorflow.keras.optimizers import SGD, Adam  # noqa: E402
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping  # noqa: E402
 from tensorflow.keras.callbacks import ReduceLROnPlateau  # noqa: E402
 
-from MLBOX.Database.core.database import Dataset  # noqa: E402
-from MLBOX.Scenes.SimpleSplit import SimpleSplit   # noqa: E402
-from MLBOX.Trainers.TF.Callbacks import ModelLogger, TrainRecord  # noqa: E402
+from ..Database.core.database import Dataset  # noqa: E402
+from .TF.Callbacks import ModelLogger, TrainRecord  # noqa: E402
 
 
-class KerasBaseTrainner:
+class KerasBaseTrainer:
 
     def __init__(
             self,
@@ -62,9 +53,9 @@ class KerasBaseTrainner:
             self,
             train_db: Dataset,
             vali_db: Dataset,
+            validation_freq: int = 1,
             lr_decay_factor: float = 0.5,
             batch_size: int = 8,
-            min_epoch: int = 40,
             max_epoch: int = 200,
             early_stop_patience: int = 20,
             load_best: int = True
@@ -75,8 +66,6 @@ class KerasBaseTrainner:
             train_db (Dataset): database of training set
             vali_db (Dataset): database of validation set
             batch_size (int, optional): Defaults to 8.
-            min_epoch (int, optional):
-                The minimum epoch for training. Defaults to 40.
             max_epoch (int, optional):
                 The maximum epoch for training. Defaults to 200.
             early_stop_patience (int, optional):
@@ -98,11 +87,15 @@ class KerasBaseTrainner:
                 print("Re-train from epoch: {}".format(init_epoch))
 
         self._model.fit(
-            x=train_db.to_tfdataset(epoch=max_epoch, batch=batch_size),
+            x=train_db.to_tfdataset(
+                epoch=max_epoch, batch=batch_size
+            ),
             epochs=max_epoch,
-            steps_per_epoch=train_db.data_count // batch_size,
-            validation_data=vali_db.get_dataset(epoch=max_epoch, batchsize=batch_size),
-            validation_steps=vali_db.data_count // batch_size,
+            steps_per_epoch=train_db.count // batch_size,
+            validation_data=vali_db.to_tfdataset(
+                epoch=max_epoch, batch=batch_size
+            ),
+            validation_steps=vali_db.count // batch_size,
             callbacks=[
                 ModelLogger(
                     train_record=TrainRecord(),
@@ -113,9 +106,9 @@ class KerasBaseTrainner:
                     ),
                 ReduceLROnPlateau(
                     factor=lr_decay_factor,
-                    patience=early_stop_patience // 3,
-                    min_delta=1e-4,
-                    cooldown=2,
+                    patience=4,
+                    min_delta=0.1,
+                    cooldown=0,
                     min_lr=1e-6,
                     monitor='val_loss', verbose=1, mode='min',
                     ),
@@ -129,5 +122,5 @@ class KerasBaseTrainner:
                     verbose=1
                 )
             ],
-            validation_freq=1
+            validation_freq=validation_freq
         )

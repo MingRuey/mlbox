@@ -6,8 +6,8 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import Input, Model
 
-from MLBOX.Models.TF.Keras.modules.ResDecoder import ResNetDecoder
-from MLBOX.Models.TF.Keras.betaVAE import ResNetEncoder, SampleLayer
+from MLBOX.Models.tf.Keras.modules.ResDecoder import ResNetDecoder
+from MLBOX.Models.tf.Keras.betaVAE import ResNetEncoder, SampleLayer
 
 
 class TestDecoderEncoder:

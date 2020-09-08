@@ -7,7 +7,7 @@ from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.optimizers import SGD, Adam
 
-from MLBOX.Models.TF.Keras.DCGAN import Generator, Discriminator
+from MLBOX.Models.tf.Keras.DCGAN import Generator, Discriminator
 from MLBOX.Trainers.GANtrainner import KerasGANTrainner
 
 

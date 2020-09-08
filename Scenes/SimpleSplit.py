@@ -1,7 +1,7 @@
 import random
-from MLBOX.Database.core.database import Dataset  # noqa: E402
+from ..Database.core.database import Dataset
 
-random.seed(84)   # the answers to life the universe and everything
+random.seed(42)   # the answers to life the universe and everything
 
 
 class SimpleSplit:

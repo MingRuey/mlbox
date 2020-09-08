@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import time
+from collections.abc import Hashable
 from concurrent import futures
 from pathlib import Path
 from queue import Queue
@@ -11,8 +12,8 @@ from typing import List, Tuple
 import numpy as np
 import tensorflow as tf
 
-from MLBOX.Database.builtin import BUILT_INS
-from MLBOX.Database.core.parsers import ParserFMT
+from .parsers import ParserFMT
+from ..builtin import BUILT_INS
 
 OUTPUT_PARALLEL_CALL = 8
 OUTPUT_BUFFER_TO_BATCH_RATIO = 16
@@ -69,9 +70,8 @@ class Dataset:
 
             with futures.ThreadPoolExecutor(OUTPUT_PARALLEL_CALL) as executor:
                 counts = executor.map(_iterate_over_example, files_splitted)
-            return sum(counts)
-        else:
-            return self._count
+            self._count = sum(counts)
+        return self._count
 
     # Both slice and split features are implemented via
     # an internal boolean mask over the dataset.
@@ -195,7 +195,7 @@ class Dataset:
             num_parallel_calls=OUTPUT_PARALLEL_CALL
         )
         dataset = dataset.shuffle(
-            shuffle_n_batch * batch, seed=42,
+            shuffle_n_batch * batch, seed=shuffle_seed,
             reshuffle_each_iteration=reshuffle_per_epoch
         )
         dataset = dataset.repeat(epoch)
@@ -283,6 +283,8 @@ class DBLoader:
         loc = Path(target.location).joinpath(target.name).joinpath(version)
         self.load(directory=str(loc), parser=parser)
 
+        self._train._count = target.train.get("count")
+        self._test._count = target.test.get("count")
         self._info = "Database {}(ver {})\ninfo: {}".format(
             name, version, target.info
         )
@@ -390,7 +392,16 @@ class DBuilder:
 
         for item in generator:
             try:
-                index = hash(frozenset(item.values())) % num_of_tfrecords
+                immuta_vals = frozenset(
+                    val for val in item.values()
+                    if isinstance(val, Hashable)
+                )
+                if not immuta_vals:
+                    msg = "Random splitting into tfrecords requires" + \
+                        "at least one feature in item to be hashable. Get {}."
+                    item_types = {k: type(v) for k, v in item.items()}
+                    raise ValueError(msg.format(item_types))
+                index = hash(immuta_vals) % num_of_tfrecords
             except Exception:
                 msg = "Error while hashing item {} in generator."
                 logging.exception(msg.format(item))

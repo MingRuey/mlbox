@@ -3,7 +3,7 @@ import pytest
 import tensorflow as tf
 from tensorflow.keras import Input, Model
 
-from MLBOX.Models.TF.Keras.GANomaly import GANomalyG, GANomalyD
+from MLBOX.Models.tf.Keras.GANomaly import GANomalyG, GANomalyD
 
 
 class TestGANomalyG:
