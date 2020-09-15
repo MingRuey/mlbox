@@ -45,11 +45,6 @@ class Feature(ABC):
         """
         raise NotImplementedError()
 
-    @property
-    def create_keys(self) -> Set[str]:
-        """Get the variables needed for creating tf.train.Example"""
-        return set(inspect.signature(self._create_from).parameters.keys())
-
     @abstractmethod
     def _parse_from(self,  **kwrags) -> Dict[str, tf.Tensor]:
         """Subclass implement the parser function for decoding tf.train.example
