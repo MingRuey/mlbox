@@ -1,7 +1,7 @@
 Ray's Machine Learning Tools (remake from KaggleWidget.TF_Utils)
 ---
 
-A light-weighted and easy-to-use tools for general deep learning based on tensorflow 2.0
+A light-weighted and easy-to-use tools for general deep learning based on tensorflow 2.x
 
 * Components:
     *  Database
@@ -11,7 +11,6 @@ A light-weighted and easy-to-use tools for general deep learning based on tensor
 ---
 
 **Database**
-
     It is a re-implementation of [tensorflow_dataset](https://www.tensorflow.org/datasets),
     while simplify its APIs and remove some functionalities for easy use.
 
@@ -40,33 +39,33 @@ A light-weighted and easy-to-use tools for general deep learning based on tensor
     '''
 
 **Model**
-
     (On-Going) Supports both classfical and SOTA deep learning models
 
 **Trainers**
-
     Provide out-of-box trainer for Model on Database.
 
 ---
 
 RoadMap/TODO:
+    # CV SOTA Models:
+        As tensorflow 2.3 includes built-in EfficentNet, it's removed from roadmap
+            - Backbone: ResNeXt, SENet, SE-ResNet, ...
+            - Dectections: EfficientDet, Yolo, ...
+            - Generative: GANs, VAE, VQ-VAE, ...
+
+    # Training && Losses:
+        -- Optimizer: Lookahead, Adabound, ...
+        -- Tricks: Consine Decay, Label Smoothing, Mixup, Distill, ...
+
     # checkout fast.ai (https://docs.fast.ai/index.html) to get some useful features
-    # fully upgrade to tensorflow 2.0
     # rewrite dataset to support more database building options
         - like store with structure (currently always random storing)
         - more custom parsing options (like parsing data in pairs)
-
-    # add more CV SOTA models
-        -- Optimizer: lookahead, Adabound, ...
-        -- VAE: VAE, VQ-VAE, ...
-	-- Classification: ResNeXt, SENet, SE-ResNet, ...
-	-- ObjectDetection: YoloV3, ...
-        -- Bags of tricks: cosine decay, label smoothing, mixup, distill, ...
 
     # intergrate time series and tabular data
     # support pytroch
         -- how to deal with tfrecord and pytorch?
 
 Progress:
+    [Updated] Mirgrate to tensorflow 2.x, and more convinient dataset API
     [Updated] ModelLogger re-written Dec. 2019
-    better split machnimsm
