@@ -1,7 +1,7 @@
 {
     "name": "imagenet",
     "location": "/rawdata2/TFDataset",
-    "versions": ["ILSVR2012-1.0.0"],
+    "versions": ["ILSVR2012-1.1.0"],
     "info": {
         "type": "image classification",
         "image": {
@@ -11,6 +11,6 @@
         }
     },
     "parser": "IMAGENET",
-    "train": {"count": 1275232},
-    "test": {"count": 49971}
+    "train": {"count": 1281167},
+    "test": {"count": 50000}
 }
